@@ -398,7 +398,6 @@ useEffect(() => {
     setSelectedPrescriber(""); setSelectedUser(""); setSelectedBranch("");
   };
 
-  const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n ?? 0);
   const sortIcon = (k: keyof DrugTransaction) => {
     if (!sortConfig || sortConfig.key !== k) return "ti ti-arrows-sort text-muted";
     return sortConfig.direction === "ascending" ? "ti ti-arrow-up" : "ti ti-arrow-down";

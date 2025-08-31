@@ -1,258 +1,240 @@
-import React, { useMemo, useState } from 'react';
-import { Container, Row, Col, Card, Accordion, InputGroup, Form, Button, Nav, Badge } from 'react-bootstrap';
-import {
-  RiDashboardLine,
-  RiSearchLine,
-  RiShieldCheckLine,
-  RiListCheck2,
-  RiBarChart2Line,
-  RiCheckDoubleLine,
-  RiCloseCircleLine,
-  RiUser3Line,
-  RiQuestionLine,
-  RiMailLine,
-  RiDatabase2Line,
-  RiGroupLine,
-  RiRefreshLine,
-} from 'react-icons/ri';
+import React, { useState } from 'react';
+import { Container, Row, Col, Card, Accordion, Form, InputGroup, Button } from 'react-bootstrap';
+import { RiSearchLine, RiCustomerService2Line, RiQuestionLine, RiFileList3Line, RiMedicineBottleLine, RiBuildingLine, RiGroupLine, RiDashboardLine, RiHistoryLine } from 'react-icons/ri';
 
-// --- Types ---
-interface Step {
-  id: string;
-  title: string;
-  icon: React.ReactNode;
-  bullets: string[];
-}
+const HelpSupportPage: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
 
-// --- Data (edit to fit your product) ---
-const STEPS: Step[] = [
-  {
-    id: 'by-drug',
-    title: 'Search by Drug Name',
-    icon: <RiSearchLine />,
-    bullets: [
-      'Type the desired drug name in the search bar to see available NDCs.',
-      'Choose the NDC you want. If it has insurance data you’ll see suggested insurance options.',
-      'Click “View Drug Details” to see prices. Without an RxGroup you will see details without prices.',
-    ],
-  },
-  {
-    id: 'by-insurance',
-    title: 'Search by Insurance Data',
-    icon: <RiShieldCheckLine />,
-    bullets: [
-      'Enter a BIN or insurance name to get all matching insurances and PCNs.',
-      'Pick an insurance to see all available PCNs, or search by BIN alone.',
-      'Open “View Drug Details” for price breakdowns.',
-    ],
-  },
-  {
-    id: 'by-rxgroup',
-    title: 'Search by RxGroup Directly',
-    icon: <RiGroupLine />,
-    bullets: [
-      'Search for the RxGroup and select the desired drug and NDC.',
-      'Click “View Drug Details” for availability and prices.',
-    ],
-  },
-  {
-    id: 'alternatives',
-    title: 'Drug Details & Alternatives',
-    icon: <RiListCheck2 />,
-    bullets: [
-      'Alternatives are based on the drug class—see all options within the same class.',
-      'Table #1: alternatives with insurance data.',
-      'Table #2: alternatives without insurance data.',
-    ],
-  },
-  {
-    id: 'all-scripts',
-    title: 'All Scripts Audit Dashboard',
-    icon: <RiBarChart2Line />,
-    bullets: [
-      'Estimated, predicted, and real revenue for all scripts.',
-      '“Best net” is calculated based on previous month of the targeted script.',
-    ],
-  },
-  {
-    id: 'matched',
-    title: 'Matched Scripts Audit Dashboard',
-    icon: <RiCheckDoubleLine />,
-    bullets: [
-      'Focus on scripts that match with the best drug to be sold.',
-      'See estimates, predictions, and real revenue in one place.',
-    ],
-  },
-  {
-    id: 'mismatched',
-    title: 'Mismatched Scripts Audit Dashboard',
-    icon: <RiCloseCircleLine />,
-    bullets: [
-      'Review scripts that don’t match the best drug to be sold.',
-      'Use insights to correct future selections and improve margins.',
-    ],
-  },
-  {
-    id: 'logs',
-    title: 'User Logs',
-    icon: <RiUser3Line />,
-    bullets: [
-      'View and filter user activity by date range and attributes.',
-      'Explore performance graphs to understand usage trends.',
-    ],
-  },
-];
+  const helpSections = [
+    {
+      title: "Search By Drug Name",
+      icon: <RiMedicineBottleLine />,
+      content: (
+        <ul>
+          <li>Type the desired drug name in the search bar.</li>
+          <li>You will get all available NDCs.</li>
+          <li>Choose the desired NDC.</li>
+          <li>If the selected NDC has insurance, you will get suggested insurance options to choose from.</li>
+          <li>Then click on 'View Drug Details'.</li>
+          <li><strong>Note:</strong> If you don't choose the RxGroup and click on 'View Drug Details', you will get the details without prices.</li>
+        </ul>
+      )
+    },
+    {
+      title: "Search By Insurance Data",
+      icon: <RiBuildingLine />,
+      content: (
+        <ul>
+          <li>Type the desired BIN or insurance name in the search bar.</li>
+          <li>You will get all available insurances.</li>
+          <li>Choose the desired insurance to get all available PCNs. You can also search for a drug using only the BIN.</li>
+          <li>Search for the RxGroup to see all available drugs and NDCs.</li>
+          <li>Click on 'View Drug Details' to see the details with prices.</li>
+          <li><strong>Note:</strong> If you don't choose the RxGroup and click on 'View Drug Details', you will get the details without prices.</li>
+        </ul>
+      )
+    },
+    {
+      title: "Search By RxGroup Directly",
+      icon: <RiGroupLine />,
+      content: (
+        <ul>
+          <li>Search for the desired RxGroup directly.</li>
+          <li>Select the desired drug and NDC.</li>
+          <li>Click on 'View Drug Details' to see the details with prices.</li>
+        </ul>
+      )
+    },
+    {
+      title: "Drug Details Alternatives",
+      icon: <RiFileList3Line />,
+      content: (
+        <ul>
+          <li>Alternatives are based on drug class—you will get all alternatives that belong to the same class.</li>
+          <li>The first table contains alternatives that have insurance.</li>
+          <li>The second table contains alternatives that don't have insurance.</li>
+        </ul>
+      )
+    },
+    {
+      title: "All Scripts Audit Dashboard",
+      icon: <RiDashboardLine />,
+      content: (
+        <ul>
+          <li>Get estimated data for all scripts.</li>
+          <li>Get estimated predicted revenue for all scripts.</li>
+          <li>Get real revenue for all scripts.</li>
+          <li><strong>Note:</strong> The best net is calculated based on the previous month of the targeted script.</li>
+        </ul>
+      )
+    },
+    {
+      title: "Matched Scripts Audit Dashboard",
+      icon: <RiDashboardLine />,
+      content: (
+        <ul>
+          <li>Get estimated data for all scripts that match with the best drug to be sold.</li>
+          <li>Get estimated predicted revenue for all scripts.</li>
+          <li>Get real revenue for all scripts.</li>
+          <li><strong>Note:</strong> The best net is calculated based on the previous month of the targeted script.</li>
+        </ul>
+      )
+    },
+    {
+      title: "Mismatched Scripts Audit Dashboard",
+      icon: <RiDashboardLine />,
+      content: (
+        <ul>
+          <li>Get estimated data for all scripts that mismatch with the best drug to be sold.</li>
+          <li>Get estimated predicted revenue for all scripts.</li>
+          <li>Get real revenue for all scripts.</li>
+          <li><strong>Note:</strong> The best net is calculated based on the previous month of the targeted script.</li>
+        </ul>
+      )
+    },
+    {
+      title: "User Logs",
+      icon: <RiHistoryLine />,
+      content: (
+        <ul>
+          <li>View all user logs.</li>
+          <li>Filter logs by selected filters and date range.</li>
+          <li>View a performance graph showing user activity using the tool.</li>
+        </ul>
+      )
+    }
+  ];
 
-const HowItWorksModern: React.FC = () => {
-  const [query, setQuery] = useState('');
-  const [expandAll, setExpandAll] = useState(false);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return STEPS;
-    const q = query.toLowerCase();
-    return STEPS.filter((s) =>
-      s.title.toLowerCase().includes(q) || s.bullets.some((b) => b.toLowerCase().includes(q))
-    );
-  }, [query]);
+  const filteredSections = helpSections.filter(section => 
+    section.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    section.content.props.children.some((item: any) => 
+      typeof item === 'string' ? item.toLowerCase().includes(searchQuery.toLowerCase()) : false
+    )
+  );
 
   return (
-    <div className="howitworks-layout">
-      {/* --- Sidebar --- */}
-     
+<Container className="py-5 content-with-sidebar">
+      {/* Header Section */}
+      <Row className="mb-5">
+        <Col className="text-center">
+          <h1 className="display-5 fw-bold text-primary mb-3">
+            <RiCustomerService2Line className="me-2" />
+            Help & Support
+          </h1>
+          <p className="lead text-muted">
+            Find answers to your questions and learn how to make the most of our platform
+          </p>
+        </Col>
+      </Row>
 
-      {/* --- Main content --- */}
-      <main className="content">
-        <Container fluid="lg">
-          {/* Header / hero */}
-          <section className="hero glass">
-            <div>
-              <h1 className="title">How It Works</h1>
-              <p className="subtitle">Follow these simple steps to get started.</p>
-            </div>
-            <div className="controls">
-              <InputGroup className="search">
-                <InputGroup.Text>
-                  <RiSearchLine />
-                </InputGroup.Text>
+      {/* Search Section */}
+      <Row className="mb-5">
+        <Col lg={8} className="mx-auto">
+          <Card className="border-0 shadow-sm">
+            <Card.Body className="p-4">
+              <h5 className="fw-bold mb-3">
+                <RiSearchLine className="me-2" />
+                Search Help Topics
+              </h5>
+              <InputGroup size="lg">
                 <Form.Control
-                  placeholder="Search help topics…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  type="text"
+                  placeholder="Search help topics..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                <Button variant="primary">
+                  <RiSearchLine />
+                </Button>
               </InputGroup>
-              <Button
-                variant={expandAll ? 'outline-dark' : 'dark'}
-                className="expand-btn"
-                onClick={() => setExpandAll((p) => !p)}
-              >
-                {expandAll ? 'Collapse all' : 'Expand all'}
-              </Button>
-            </div>
-            <div className="chips">
-              <Badge pill bg="light" text="dark" onClick={() => setQuery('drug')}>Drug</Badge>
-              <Badge pill bg="light" text="dark" onClick={() => setQuery('insurance')}>Insurance</Badge>
-              <Badge pill bg="light" text="dark" onClick={() => setQuery('RxGroup')}>RxGroup</Badge>
-              <Badge pill bg="light" text="dark" onClick={() => setQuery('audit')}>Audit</Badge>
-            </div>
-          </section>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
 
-          {/* Steps */}
-          <section className="steps">
-            <Accordion alwaysOpen={expandAll} className="accordion-modern">
-              {filtered.map((s, idx) => (
-                <Card key={s.id} id={s.id} className="step-card">
-                  <Accordion.Item eventKey={String(idx)}>
-                    <Accordion.Header>
-                      <div className="step-icon">{s.icon}</div>
-                      <span className="step-title">{s.title}</span>
-                    </Accordion.Header>
-                    <Accordion.Body>
-                      <ul className="bullets">
-                        {s.bullets.map((b, i) => (
-                          <li key={i}>{b}</li>
-                        ))}
-                      </ul>
-                    </Accordion.Body>
-                  </Accordion.Item>
-                </Card>
+      {/* How It Works Section */}
+      <Row className="mb-5">
+        <Col>
+          <Card className="border-0 bg-light">
+            <Card.Body className="p-5 text-center">
+              <div className="mb-4">
+                <RiQuestionLine size={48} className="text-primary mb-3" />
+                <h2 className="fw-bold">How It Works</h2>
+                <p className="text-muted">Follow these simple steps to get started</p>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Help Sections */}
+      <Row>
+        <Col>
+          <h3 className="fw-bold mb-4">Help Sections</h3>
+          
+          {filteredSections.length > 0 ? (
+            <Accordion defaultActiveKey="0" className="help-accordion">
+              {filteredSections.map((section, index) => (
+                <Accordion.Item eventKey={index.toString()} key={index} className="mb-3 border-0">
+                  <Accordion.Header className="fw-bold">
+                    <span className="me-3 text-primary">{section.icon}</span>
+                    {section.title}
+                  </Accordion.Header>
+                  <Accordion.Body className="bg-light">
+                    {section.content}
+                  </Accordion.Body>
+                </Accordion.Item>
               ))}
             </Accordion>
-          </section>
+          ) : (
+            <Card className="border-0 text-center py-5">
+              <Card.Body>
+                <RiSearchLine size={48} className="text-muted mb-3" />
+                <h5 className="fw-bold">No results found</h5>
+                <p className="text-muted">Try searching with different keywords</p>
+              </Card.Body>
+            </Card>
+          )}
+        </Col>
+      </Row>
 
-          {/* CTA */}
-          <section id="contact" className="cta glass">
-            <div className="cta-text">
-              Still need help?
-              <a href="#" className="cta-link"><RiMailLine /> Contact us</a>
-            </div>
-          </section>
-        </Container>
-      </main>
+      {/* Contact Section */}
+      <Row className="mt-5">
+        <Col className="text-center">
+          <Card className="border-0 bg-primary text-white">
+            <Card.Body className="p-5">
+              <h3 className="fw-bold mb-3">Still need help?</h3>
+              <p className="mb-4">Our support team is here to assist you</p>
+              <Button variant="light" size="lg">
+                Contact Us
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Styles */}
-      <style>{`
-        :root{
-          --bg:#0b1220; /* page bg gradient base */
-          --card:#0f1b31;
-          --muted:#7c8aaa;
-          --brand:#4c82ff;
-        }
-        .howitworks-layout{ display:grid; grid-template-columns: 260px 1fr; min-height:100vh; background: radial-gradient(60% 50% at 50% 0%, #162238 0%, #0b1220 60%); color:#eaf1ff; }
+     
+  <style>{`
+    .content-with-sidebar {
+      margin-left: 230px; /* match your sidebar width */
+      transition: margin-left .2s ease;
+    }
 
-        /* Sidebar */
-        .sidebar{ position:sticky; top:0; height:100vh; padding:20px 16px; border-right:1px solid rgba(255,255,255,.06); backdrop-filter:saturate(1.2) blur(6px); }
-        .brand{ display:flex; align-items:center; gap:10px; padding:6px 8px 16px; }
-        .logo{ width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:linear-gradient(135deg,#5aa3ff,#8aa8ff); font-weight:800; }
-        .name{ font-weight:700; letter-spacing:.2px; }
-        .sb-section{ margin:16px 8px 6px; color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; }
-        .sb-link{ color:#dfe7ff; border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:10px; }
-        .sb-link:hover{ background:rgba(255,255,255,.06); color:#fff; }
-        .sb-link.active{ background:rgba(76,130,255,.15); color:#fff; }
-        .divider{ height:1px; background:rgba(255,255,255,.08); margin:10px 0; }
+    /* On mobile, sidebar overlays, so remove margin */
+    @media (max-width: 991.98px) {
+      .content-with-sidebar {
+        margin-left: 0;
+      }
+    }
 
-        /* Content */
-        .content{ padding:28px; }
-        .hero{ display:flex; flex-direction:column; gap:16px; border-radius:16px; padding:24px; margin-bottom:24px; background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
-        .title{ font-weight:800; letter-spacing:.2px; margin:0; }
-        .subtitle{ margin:6px 0 0; color:var(--muted); }
-        .controls{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-        .search .input-group-text{ background:transparent; color:var(--muted); border-right:0; }
-        .search .form-control{ background:transparent; border-left:0; color:#fff; border-color:rgba(255,255,255,.15); }
-        .search .form-control::placeholder{ color:#9fb0d1; }
-        .expand-btn{ white-space:nowrap; }
-        .chips{ display:flex; gap:8px; flex-wrap:wrap; }
-        .chips .badge{ cursor:pointer; border:1px solid rgba(255,255,255,.15); }
-
-        /* Cards / Accordion */
-        .steps{ display:grid; gap:14px; }
-        .accordion-modern .accordion-item{ background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); border-radius:14px; overflow:hidden; }
-        .accordion-modern .accordion-header{ padding: 0; }
-        .accordion-modern .accordion-button{ background:transparent; color:#eaf1ff; padding:16px 18px; gap:10px; box-shadow:none; }
-        .accordion-modern .accordion-button:not(.collapsed){ background:rgba(76,130,255,.12); color:#fff; }
-        .accordion-modern .accordion-body{ color:#d5e1ff; padding:16px 22px 18px; }
-        .bullets{ margin:0; padding-left:18px; }
-        .bullets li{ margin:6px 0; }
-        .step-icon{ display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,#4c82ff,#69a6ff); color:#0b1220; font-size:18px; }
-        .step-title{ font-weight:700; }
-
-        /* CTA */
-        .cta{ display:flex; justify-content:center; align-items:center; margin:28px 0 40px; padding:18px; border-radius:14px; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); }
-        .cta-text{ color:#dfe7ff; display:flex; gap:12px; align-items:center; }
-        .cta-link{ color:#fff; text-decoration:none; font-weight:700; display:inline-flex; gap:6px; align-items:center; padding:8px 12px; border-radius:10px; background:linear-gradient(135deg,#5aa3ff,#8aa8ff); }
-        .cta-link:hover{ filter:brightness(1.05); }
-
-        @media (max-width: 1024px){
-          .howitworks-layout{ grid-template-columns: 86px 1fr; }
-          .name{ display:none; }
-          .sb-section{ display:none; }
-        }
-        @media (max-width: 768px){
-          .howitworks-layout{ grid-template-columns: 1fr; }
-          .sidebar{ position:relative; height:auto; display:flex; gap:10px; overflow-x:auto; }
-        }
-      `}</style>
-    </div>
+    /* If your layout toggles a collapsed sidebar class, shrink margin */
+    body.sidebar-collapsed .content-with-sidebar,
+    .page-wrapper.sidebar-collapsed .content-with-sidebar {
+      margin-left: 72px; /* collapsed width */
+    }
+  `}</style>
+    </Container>
   );
 };
 
-export default HowItWorksModern;
+export default HelpSupportPage;

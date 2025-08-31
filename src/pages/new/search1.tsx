@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
-import Breadcrumb from "../../components/breadcrumb/breadcrumb";
 
 /** ====== Mock Data ====== */
 type Drug = { id: number; name: string };
@@ -138,7 +137,7 @@ const DrugSearch: React.FC = () => {
   return (
     <div className="container py-4">
       <div className="d-flex flex-column align-items-center text-center mb-4">
-        <AutoBreadcrumb title="Search Medicines" description="Search for medicines with mock data." />
+        <AutoBreadcrumb title="Search Medicines" />
       </div>
 
       <div className="row justify-content-center">

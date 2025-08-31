@@ -10,7 +10,7 @@ export const SidebarData = [
         label: "Home",
         link: route.home,
         submenu: false,
-        icon: "layout-board",
+        icon: "home",
         submenuItems: [],
       },
       
@@ -45,6 +45,19 @@ export const SidebarData = [
 
     ]
   },
+   {
+        label: "Logs",
+        link: '/logs',
+        submenu: false,
+        icon: "history",
+        submenuItems: [],
+      }, {
+        label: "Help & S upport",
+        link: '/help',
+        submenu: false,
+        icon: "help",
+        submenuItems: [],
+      },
       /*
       {
         label: "Applications",

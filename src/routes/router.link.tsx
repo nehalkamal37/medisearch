@@ -10,9 +10,9 @@ import MainDashboard from "../pages/new/MainDashboard";
 import FirstDashboard from "../pages/new/Dashboard";
 import SecondDashBoard from "../pages/new/SecondDashboard";
 import ThirdDashBoard from "../pages/new/ThirdDashboard";
-import DrugDetails from "../pages/new/DrugDetails";
 import LandingPage from "../pages/new/home";
 import HowItWorksModern from "../pages/new/help";
+import UserActivityLogs from "../pages/new/logs";
 
 const ManageInvoicesDetails = React.lazy(
   () =>
@@ -557,9 +557,9 @@ export const publicRoutes = [
     { path: route.dashboard3, element: <ThirdDashBoard data={[]} /> },
     
     // مثال
-{ path:"/drugdetails", element: <DrugDetails />} ,
 { path:"/home", element: <LandingPage />} ,
 { path:"/help", element: <HowItWorksModern />} ,
+{ path:"/logs", element: <UserActivityLogs />} ,
 
 
 

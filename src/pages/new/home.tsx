@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Carousel } from 'react-bootstrap';
+import React from 'react';
+import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import type { ReactNode } from 'react';
 // Graphic icons (Remix Icons via react-icons)
 import {
   RiCapsuleLine,
   RiMedicineBottleLine,
-  RiFileList3Line,
   RiTruckLine,
   RiWallet3Line,
   RiSyringeLine,
@@ -26,13 +25,6 @@ interface Service {
   icon: ReactNode;
 }
 
-interface Testimonial {
-  name: string;
-  role: string;
-  content: string;
-  avatar: string;
-}
-
 interface Feature {
   title: string;
   description: string;
@@ -42,7 +34,7 @@ interface Feature {
 const brand = 'MedSearch ';
 
 const LandingPage: React.FC = () => {
-  const [_, setActiveTab] = useState<string>('home');
+  //const [_, setActiveTab] = useState<string>('home');
 
   // ===== PHARMACY CONTENT =====
   const services: Service[] = [
@@ -103,7 +95,7 @@ const LandingPage: React.FC = () => {
       icon: <RiStarSmileLine />,
     },
   ];
-
+/*
   const testimonials: Testimonial[] = [
     {
       name: 'Amira Y.',
@@ -127,7 +119,7 @@ const LandingPage: React.FC = () => {
       avatar: 'MS',
     },
   ];
-
+*/
   return (
     <div className="pharmacy-homepage">
       {/* ===== NAVBAR ===== */}
@@ -256,57 +248,8 @@ const LandingPage: React.FC = () => {
         </Container>
       </section>
 
-      {/* ===== TESTIMONIALS ===== 
-      <section className="testimonials-section py-5">
-        <Container>
-          <Row className="text-center mb-4">
-            <Col>
-              <h2 className="fw-bold">Loved by our community</h2>
-              <p className="text-muted">Here’s what customers say</p>
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Carousel indicators={false} variant="dark">
-                {testimonials.map((t, i) => (
-                  <Carousel.Item key={i}>
-                    <Card className="border-0 bg-light">
-                      <Card.Body className="p-5 text-center">
-                        <div
-                          className="avatar bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                          style={{ width: '60px', height: '60px', fontWeight: 700 }}
-                          aria-hidden
-                        >
-                          {t.avatar}
-                        </div>
-                        <p className="lead fst-italic mb-3">“{t.content}”</p>
-                        <h6 className="fw-bold mb-1">{t.name}</h6>
-                        <p className="text-muted small">{t.role}</p>
-                      </Card.Body>
-                    </Card>
-                  </Carousel.Item>
-                ))}
-              </Carousel>
-            </Col>
-          </Row>
-        </Container>
-      </section>
-
-      <section className="cta-section bg-primary text-white py-5">
-        <Container>
-          <Row className="align-items-center text-center text-lg-start">
-            <Col lg={8}>
-              <h3 className="fw-bold mb-2">Ready to refill or transfer?</h3>
-              <p className="mb-0">We’ll have your medications ready—often the same day.</p>
-            </Col>
-            <Col lg={4} className="text-lg-end mt-3 mt-lg-0">
-              <Button variant="light" size="lg" className="me-2">Order Refill</Button>
-              <Button variant="outline-light" size="lg">Transfer Rx</Button>
-            </Col>
-          </Row>
-        </Container>
-      </section>
-*/}
+    
+        
       {/* ===== FOOTER ===== */}
       <footer className="footer bg-dark text-white-90 py-5">
         <Container>

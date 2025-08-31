@@ -79,7 +79,7 @@ const Login = () => {
                     <Link to={all_routes.dashboard} className="logo d-inline-block">
                       <ImageWithBasePath
                         src="assets/img/logo-dark.svg"
-                        className="img-fluid"
+                        className="img-fluid "
                         alt="Logo"
                         style={{ height: "40px" }}
                       />

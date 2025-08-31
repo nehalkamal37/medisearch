@@ -70,8 +70,6 @@ const formatDate = (d: any, locale = "en-US") => {
   const dt = toSafeDate(d);
   return isValidDate(dt) ? dt.toLocaleDateString(locale) : "-";
 };
-const money = (n?: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n ?? 0);
 const titleCase = (s: string) =>
   (s || "").split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ").replace(/[.,]/g, "");
 const monthLabel = (ym: string) => {
@@ -289,7 +287,7 @@ const ThirdDashBoard: React.FC<{ data?: DrugTransaction[] }> = ({ data }) => {
   // KPIs
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalNet, setTotalNet] = useState(0);
-  const [belowNetPriceCount, setBelowNetPriceCount] = useState(0);
+  const [ setBelowNetPriceCount] = useState(0);
 
   const rowsPerPage = 10;
 

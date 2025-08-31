@@ -378,7 +378,7 @@ const InsuranceSearch: React.FC = () => {
       <PageMeta title="Insurance Search" description="Search by BIN / PCN / Rx Group using mock data." />
   
       <div className="d-flex flex-column align-items-center text-center mb-4">
-        <AutoBreadcrumb title="Insurance Search" description="Search for medicines based on insurance criteria — all mock data until we connect the API." />
+        <AutoBreadcrumb title="Insurance Search" />
       </div>
 
       <div className="row justify-content-center">
