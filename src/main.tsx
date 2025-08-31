@@ -15,7 +15,7 @@ import { useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "@tabler/icons-webfont/dist/tabler-icons.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-
+import 'bootstrap/dist/css/bootstrap.min.css';
 import "../src/assets/scss/custom.scss";
 
 // Initialize Bootstrap globally

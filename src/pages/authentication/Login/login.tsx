@@ -4,8 +4,6 @@ import { all_routes } from "../../../routes/all_routes";
 import { useState } from "react";
 type PasswordField = "password" | "confirmPassword";
 
-
-
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -57,213 +55,130 @@ const Login = () => {
       alert('Invalid credentials. Please use admin@dreamsemr.com / admin123');
     }
   };
+  
   return (
     <>
       {/* Start Content */}
-      <div className="container-fuild position-relative z-1">
-        <div className="w-100 overflow-hidden position-relative flex-wrap d-block vh-100 bg-white lock-screen-cover">
-          {/* start row*/}
-          <div className="row">
-            <div className="col-lg-6 col-md-12 col-sm-12">
-              <div className="row justify-content-center align-items-center overflow-auto flex-wrap vh-100">
-                <div className="col-md-8 mx-auto">
-                  <form
-                    className="d-flex justify-content-center align-items-center"
-                    onSubmit={handleLogin}
-                  >
-                    <div className="d-flex flex-column justify-content-lg-center flex-fill">
-                      <div className="card border-1 p-lg-3 shadow-md rounded-3 m-0">
-                        <div className="card-body">
-                          <div className="mb-4">
-                            <Link to={all_routes.dashboard} className="logo">
-                              <ImageWithBasePath
-                                src="assets/img/logo-dark.svg"
-                                className="img-fluid logo"
-                                alt="Logo"
-                              />
-                            </Link>
-                          </div>
-                          <div className="mb-3">
-                            <h5 className="mb-1 fw-bold text-dark">Hi, Welcome Back</h5>
-                          </div>
-                          <div className="mb-3">
-                            <label className="form-label">
-                              Email<span className="text-danger ms-1">*</span>
-                            </label>
-                            <div className="input-group input-group-flat">
-                              <input
-                                type="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleInputChange}
-                                className="form-control border-end-0"
-                                required
-                              />
-                              <span className="input-group-text bg-white">
-                                <i className="ti ti-mail fs-14 text-dark" />
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mb-3">
-                            <label className="form-label">
-                              Password<span className="text-danger ms-1">*</span>
-                            </label>
-                            <div className="input-group input-group-flat pass-group">
-                              <input
-                                type={passwordVisibility.password ? "text" : "password"}
-                                name="password"
-                                value={formData.password}
-                                onChange={handleInputChange}
-                                className="form-control pass-input"
-                                placeholder=""
-                                required
-                              />
-                              <span
-                                className={`ti toggle-password input-group-text toggle-password ${passwordVisibility.password ? "ti-eye" : "ti-eye-off"
-                                  }`}
-                                onClick={() => togglePasswordVisibility("password")}
-                              ></span>
-                            </div>
-                          </div>
-                          <div className="d-flex align-items-center justify-content-between mb-3">
-                            <div className="d-flex align-items-center">
-                              <div className="form-check form-check-md mb-0">
-                                <input
-                                  className="form-check-input"
-                                  id="remember_me"
-                                  type="checkbox"
-                                />
-                                <label
-                                  htmlFor="remember_me"
-                                  className="form-check-label mt-0 text-body"
-                                >
-                                  Remember Me
-                                </label>
-                              </div>
-                            </div>
-                            <div className="text-end">
-                              <Link
-                                to={all_routes.forgotPassword}
-                                className="text-primary"
-                              >
-                                Forgot Password?
-                              </Link>
-                            </div>
-                          </div>
-                          <div className="mb-2">
-                            <button
-                              type="submit"
-                              className="btn bg-primary text-white w-100 btn-login"
-                            >
-                              Sign In
-                            </button>
-                          </div>
-                          <div className="login-or position-relative my-1 py-2 text-center fw-medium">
-                            <span className="position-relative bg-white px-2 z-2">
-                              Or
-                            </span>
-                          </div>
-                          <div className="mb-3">
-                            <div className="d-flex align-items-center justify-content-center flex-wrap">
-                              <div className="text-center me-2 flex-fill">
-                                <Link
-                                  to="#"
-                                  className="br-10 p-1 btn btn-light d-flex align-items-center justify-content-center"
-                                >
-                                  <ImageWithBasePath
-                                    className="img-fluid m-1"
-                                    src="assets/img/icons/google.svg"
-                                    alt="Google"
-                                  />
-                                  Google
-                                </Link>
-                              </div>
-                              <div className="text-center flex-fill">
-                                <Link
-                                  to="#"
-                                  className="br-10 p-1 btn btn-light d-flex align-items-center justify-content-center"
-                                >
-                                  <ImageWithBasePath
-                                    className="img-fluid m-1"
-                                    src="assets/img/icons/facebook.svg"
-                                    alt="Facebook"
-                                  />
-                                  Facebook
-                                </Link>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-center">
-                            <h6 className="fw-normal fs-14 text-body mb-0">
-                              Don’t have an account?
-                              <Link to={all_routes.signUp} className="ms-1 text-primary">
-                                Sign Up
-                              </Link>
-                            </h6>
-                          </div>
-                        </div>
-                        {/* end card body */}
+      <div className="container-fluid position-relative z-1">
+        <div className="w-100 overflow-hidden position-relative d-flex align-items-center justify-content-center vh-100" 
+             style={{ 
+               background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+               backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" fill=\"%23f8f9fa\"/><path d=\"M0 50 L100 50 M50 0 L50 100\" stroke=\"%23e9ecef\" stroke-width=\"1\"/></svg>')"
+             }}>
+          {/* Form Container */}
+          <div className="row justify-content-center w-100">
+            <div className="col-xl-4 col-lg-6 col-md-8 col-sm-10">
+              <div className="card border-0 p-4 shadow-lg rounded-4" 
+                   style={{
+                     backgroundColor: "rgba(255, 255, 255, 0.95)",
+                     backdropFilter: "blur(10px)",
+                     boxShadow: "0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07)"
+                   }}>
+                <div className="card-body p-4">
+                  <div className="text-center mb-4">
+                    <Link to={all_routes.dashboard} className="logo d-inline-block">
+                      <ImageWithBasePath
+                        src="assets/img/logo-dark.svg"
+                        className="img-fluid"
+                        alt="Logo"
+                        style={{ height: "40px" }}
+                      />
+                    </Link>
+                  </div>
+                  <div className="text-center mb-4">
+                    <h4 className="fw-bold text-dark mb-1">Hi, Welcome Back</h4>
+                    <p className="text-muted">Sign in to continue to your account</p>
+                  </div>
+                  <form onSubmit={handleLogin}>
+                    <div className="mb-3">
+                      <label className="form-label fw-medium">
+                        Email<span className="text-danger ms-1">*</span>
+                      </label>
+                      <div className="input-group input-group-lg">
+                        <span className="input-group-text bg-light border-end-0">
+                          <i className="ti ti-mail fs-5 text-primary" />
+                        </span>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className="form-control border-start-0 ps-2"
+                          required
+                          style={{ height: "48px" }}
+                        />
                       </div>
-                      {/* end card */}
                     </div>
+                    <div className="mb-3">
+                      <label className="form-label fw-medium">
+                        Password<span className="text-danger ms-1">*</span>
+                      </label>
+                      <div className="input-group input-group-lg pass-group">
+                        <span className="input-group-text bg-light border-end-0">
+                          <i className="ti ti-lock fs-5 text-primary" />
+                        </span>
+                        <input
+                          type={passwordVisibility.password ? "text" : "password"}
+                          name="password"
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          className="form-control border-start-0 pass-input ps-2"
+                          required
+                          style={{ height: "48px" }}
+                        />
+                        <span
+                          className={`input-group-text toggle-password ${passwordVisibility.password ? "ti-eye" : "ti-eye-off"} cursor-pointer`}
+                          onClick={() => togglePasswordVisibility("password")}
+                        ></span>
+                      </div>
+                    </div>
+                    <div className="d-flex align-items-center justify-content-between mb-4">
+                      <div className="d-flex align-items-center">
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            id="remember_me"
+                            type="checkbox"
+                          />
+                          <label
+                            htmlFor="remember_me"
+                            className="form-check-label text-body"
+                          >
+                            Remember Me
+                          </label>
+                        </div>
+                      </div>
+                      <div className="text-end">
+                        <Link
+                          to={all_routes.forgotPassword}
+                          className="text-primary text-decoration-none"
+                        >
+                          Forgot Password?
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <button
+                        type="submit"
+                        className="btn btn-primary btn-lg w-100 btn-login py-2 fw-medium"
+                        style={{ borderRadius: "8px" }}
+                      >
+                        Sign In
+                      </button>
+                    </div>
+                    <div className="position-relative my-4">
+                      <hr className="my-4" />
+                      <div className="position-absolute top-50 start-50 translate-middle px-3 bg-white">
+                        <span className="text-muted small">MediSearch</span>
+                      </div>
+                    </div>
+                    
+                   
                   </form>
-                </div>{" "}
-                {/* end row*/}
+                </div>
               </div>
             </div>
-            <div className="col-lg-6 p-0">
-              <div className="login-backgrounds login-covers bg-primary d-lg-flex align-items-center justify-content-center d-none flex-wrap position-relative h-100 z-0">
-                <div className="authentication-card">
-                  <div className="authen-overlay-item w-100">
-                    <div className="authen-head text-center">
-                      <h1 className="text-white fs-28 fw-bold mb-2">
-                        Your Wellness Journey Starts Here
-                      </h1>
-                      <p className="text-light fw-normal text-light mb-0">
-                        Our Medical Website Admin Template offers an intuitive
-                        interface for efficient administration and organization of
-                        medical data
-                      </p>
-                    </div>
-                  </div>
-                  <div className="auth-person">
-                    <ImageWithBasePath
-                      src="assets/img/auth/auth-img-06.png"
-                      alt="doctor"
-                      className="img-fluid"
-                    />
-                  </div>
-                </div>
-                <ImageWithBasePath
-                  src="assets/img/auth/auth-img-01.png"
-                  alt="shadow"
-                  className="position-absolute top-0 start-0"
-                />
-                <ImageWithBasePath
-                  src="assets/img/auth/auth-img-02.png"
-                  alt="bubble"
-                  className="img-fluid position-absolute top-0 end-0"
-                />
-                <ImageWithBasePath
-                  src="assets/img/auth/auth-img-03.png"
-                  alt="shadow"
-                  className="img-fluid position-absolute auth-img-01"
-                />
-                <ImageWithBasePath
-                  src="assets/img/auth/auth-img-04.png"
-                  alt="bubble"
-                  className="img-fluid position-absolute auth-img-02"
-                />
-                <ImageWithBasePath
-                  src="assets/img/auth/auth-img-05.png"
-                  alt="bubble"
-                  className="img-fluid position-absolute bottom-0"
-                />
-              </div>
-            </div>{" "}
-            {/* end row*/}
           </div>
-          {/* end row*/}
         </div>
       </div>
       {/* End Content */}

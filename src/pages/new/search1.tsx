@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
 import Breadcrumb from "../../components/breadcrumb/breadcrumb";
-// لو محتاج تنقل لصفحة تفاصيل حقيقية لاحقًا
-// import { useNavigate } from "react-router-dom";
 
 /** ====== Mock Data ====== */
 type Drug = { id: number; name: string };
@@ -20,7 +18,6 @@ const MOCK_DRUGS: Drug[] = [
   { id: 8, name: "Gabapentin" },
   { id: 9, name: "Hydrochlorothiazide" },
   { id: 10, name: "Simvastatin" },
-  // زوّد أسماء تانية لو عايز
 ];
 
 const MOCK_NDCS_BY_DRUG: Record<string, string[]> = {
@@ -47,7 +44,6 @@ const MOCK_INS_BY_NDC: Record<string, DrugInsuranceInfo[]> = {
 };
 
 const MOCK_DETAILS: Record<string, Prescription> = {
-  // key = `${ndc}::${insuranceId}`
   "00093-1048-01::11": { net: 12.7, ndc: "00093-1048-01", drugName: "Metformin" },
   "00093-1048-01::12": { net: 8.2, ndc: "00093-1048-01", drugName: "Metformin" },
   "00185-0730-01::13": { net: 10.4, ndc: "00185-0730-01", drugName: "Metformin" },
@@ -57,8 +53,6 @@ const MOCK_DETAILS: Record<string, Prescription> = {
 
 /** ====== Component ====== */
 const DrugSearch: React.FC = () => {
-  // const navigate = useNavigate();
-
   // Search State
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -143,31 +137,36 @@ const DrugSearch: React.FC = () => {
 
   return (
     <div className="container py-4">
-      <AutoBreadcrumb title="Search Medicines" description="Search for medicines with mock data." />
-      <Breadcrumb title="Search Medicines" />
+      <div className="d-flex flex-column align-items-center text-center mb-4">
+        <AutoBreadcrumb title="Search Medicines" description="Search for medicines with mock data." />
+      </div>
 
-      <div className="row g-4 justify-content-center">
-        <div className="col-12 col-lg-8">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <div className="text-center mb-3">
-                <h5 className="mb-1">Search for Medicines</h5>
-                <div className="text-muted">
-“Search by name, then select the NDC and the insurance — all mock data until we connect the API.”                </div>
-              </div>
-
+      <div className="row justify-content-center">
+        <div className="col-12 col-lg-10 col-xl-8">
+          <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+            <div className="card-header bg- text-white py-4 px-5">
+              <h4 className="mb-0 fw-semibold">
+                <i className="ti ti-pill me-2"></i>
+                Medicine Search
+              </h4>
+              <p className="mb-0 opacity-75 mt-2">
+                Search by name, then select the NDC and the insurance — all mock data until we connect the API.
+              </p>
+            </div>
+            
+            <div className="card-body p-5">
               {/* Search input */}
               <div className="mb-4 position-relative">
-                <label htmlFor="drugSearch" className="form-label">Drug name</label>
-                <div className="input-group">
-                  <span className="input-group-text">
-                    <i className="ti ti-search" aria-hidden="true" />
+                <label htmlFor="drugSearch" className="form-label fw-medium text-dark mb-2">Drug name</label>
+                <div className="input-group input-group-lg">
+                  <span className="input-group-text bg-light border-end-0">
+                    <i className="ti ti-search text-primary" aria-hidden="true" />
                   </span>
                   <input
                     id="drugSearch"
                     ref={inputRef}
                     type="text"
-                    className="form-control"
+                    className="form-control border-start-0 ps-2"
                     placeholder="e.g., Metformin"
                     value={query}
                     onChange={handleQueryChange}
@@ -193,9 +192,15 @@ const DrugSearch: React.FC = () => {
                     aria-expanded={showSuggestions}
                     aria-controls="suggestion-list"
                     aria-activedescendant={activeIndex >= 0 ? `sugg-${activeIndex}` : undefined}
+                    style={{ height: "52px" }}
                   />
                   {query && (
-                    <button className="btn btn-outline-secondary" onClick={clearAll} aria-label="Clear search">
+                    <button 
+                      className="btn btn-outline-secondary d-flex align-items-center" 
+                      onClick={clearAll} 
+                      aria-label="Clear search"
+                      style={{ height: "52px" }}
+                    >
                       <i className="ti ti-x" aria-hidden="true" />
                     </button>
                   )}
@@ -205,7 +210,7 @@ const DrugSearch: React.FC = () => {
                   <div
                     id="suggestion-list"
                     ref={dropdownRef}
-                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                     style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
                     role="listbox"
                     aria-label="Drug search suggestions"
@@ -216,9 +221,10 @@ const DrugSearch: React.FC = () => {
                         id={`sugg-${i}`}
                         role="option"
                         aria-selected={activeIndex === i}
-                        className={`list-group-item list-group-item-action border-0 ${activeIndex === i ? "active" : ""}`}
+                        className={`list-group-item list-group-item-action border-0 py-3 px-4 ${activeIndex === i ? "active bg-primary" : ""}`}
                         onClick={() => handlePickDrug(d)}
                       >
+                        <i className="ti ti-pill me-2"></i>
                         {d.name}
                       </button>
                     ))}
@@ -229,12 +235,13 @@ const DrugSearch: React.FC = () => {
               {/* NDC */}
               {ndcList.length > 0 && (
                 <div className="mb-4">
-                  <label htmlFor="ndcSelect" className="form-label">Select NDC</label>
+                  <label htmlFor="ndcSelect" className="form-label fw-medium text-dark mb-2">Select NDC</label>
                   <select
                     id="ndcSelect"
-                    className="form-select"
+                    className="form-select form-select-lg"
                     value={selectedNdc}
                     onChange={(e) => handlePickNdc(e.target.value)}
+                    style={{ height: "52px" }}
                   >
                     <option value="">Select NDC…</option>
                     {ndcList.map((ndc) => (
@@ -247,12 +254,13 @@ const DrugSearch: React.FC = () => {
               {/* Insurance */}
               {selectedNdc && insList.length > 0 && (
                 <div className="mb-4">
-                  <label htmlFor="insSelect" className="form-label">Select Insurance</label>
+                  <label htmlFor="insSelect" className="form-label fw-medium text-dark mb-2">Select Insurance</label>
                   <select
                     id="insSelect"
-                    className="form-select"
+                    className="form-select form-select-lg"
                     value={selectedIns?.insuranceId ?? ""}
                     onChange={(e) => handlePickIns(Number(e.target.value))}
+                    style={{ height: "52px" }}
                   >
                     <option value="">Select insurance…</option>
                     {insList.map((i) => (
@@ -266,11 +274,13 @@ const DrugSearch: React.FC = () => {
 
               {/* Preview (Mock) */}
               {details && (
-                <div className="alert alert-secondary d-flex align-items-center gap-2">
-                  <i className="ti ti-currency-dollar" aria-hidden="true" />
+                <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
+                  <div className="bg-white p-3 rounded-3">
+                    <i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" />
+                  </div>
                   <div>
-                    <div className="fw-semibold">Net Price</div>
-                    <div>{details.net != null ? `$${details.net}` : "N/A"}</div>
+                    <div className="fw-semibold">Estimated Net Price</div>
+                    <div className="fs-5 fw-bold">{details.net != null ? `$${details.net}` : "N/A"}</div>
                   </div>
                 </div>
               )}
@@ -279,11 +289,12 @@ const DrugSearch: React.FC = () => {
               {selectedDrug && (
                 <button
                   type="button"
-                  className="btn btn-primary w-100"
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
                   data-bs-toggle="modal"
                   data-bs-target="#detailsModal"
                 >
-                  View Drug Details <i className="ti ti-external-link ms-1" aria-hidden="true" />
+                  <i className="ti ti-file-text me-2"></i>
+                  View Drug Details
                 </button>
               )}
             </div>
@@ -294,28 +305,43 @@ const DrugSearch: React.FC = () => {
       {/* Details Modal (Mock) */}
       <div className="modal fade" id="detailsModal" tabIndex={-1} aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
+          <div className="modal-content border-0 shadow-lg">
+            <div className="modal-header bg-primary text-white">
               <h6 className="modal-title">
+                <i className="ti ti-info-circle me-2"></i>
                 Drug Details (Mock)
               </h6>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close" />
+              <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" />
             </div>
             <div className="modal-body">
-              <div className="mb-2"><span className="text-muted">Drug:</span> <strong>{selectedDrug?.name || "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">NDC:</span> <strong>{selectedNdc || "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Insurance:</span> <strong>{selectedIns?.insurance || "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Net:</span> <strong>{details?.net != null ? `$${details.net}` : "-"}</strong></div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">Drug:</div>
+                  <div className="fw-semibold">{selectedDrug?.name || "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">NDC:</div>
+                  <div className="fw-semibold">{selectedNdc || "-"}</div>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">Insurance:</div>
+                  <div className="fw-semibold">{selectedIns?.insurance || "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">Net Price:</div>
+                  <div className="fw-semibold">{details?.net != null ? `$${details.net}` : "-"}</div>
+                </div>
+              </div>
               <hr />
               <div className="small text-muted">
-                * البيانات دي Mock لغاية ما نربط الـ API الحقيقي.
+                <i className="ti ti-info-circle me-1"></i>
+                This is mock data until we connect to the actual API.
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-light" data-bs-dismiss="modal">Close</button>
-              {/* لو عايز تروح لصفحة حقيقية بعدين
-              <button className="btn btn-primary" onClick={() => navigate(`/drug/${selectedDrug?.id}`)}>Open Full Page</button>
-              */}
             </div>
           </div>
         </div>

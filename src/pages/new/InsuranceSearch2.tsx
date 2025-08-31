@@ -353,7 +353,9 @@ const InsuranceSearch2: React.FC = () => {
         description="Search by BIN → PCN → Rx Group, then by Drug Class — mock data until API hookup."
         canonical={window.location.origin + "/insurance-search-2"}
       />
+        <div className="d-flex flex-column align-items-center text-center mb-4">
       <AutoBreadcrumb title="Insurance Search (Drug Class)" />
+  </div>
 
       <div className="row g-4 justify-content-center">
         <div className="col-12 col-lg-8">

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
-import PageMeta from "../../components/PageMeta"; // tiny helper we added earlier
+import PageMeta from "../../components/PageMeta";
 
 /** Types (aligned with your snippet) */
 interface BinModel {
@@ -261,7 +261,7 @@ const InsuranceSearch: React.FC = () => {
     // base: filter by text
     let pool = ALL_DRUGS_DB.filter(d => d.name.toLowerCase().includes(q));
 
-    // if limitSearch ON, further “simulate coverage” by ids
+    // if limitSearch ON, further "simulate coverage" by ids
     if (limitSearch) {
       if (selectedRxGroup) {
         const m = selectedRxGroup.id % 3;
@@ -376,22 +376,29 @@ const InsuranceSearch: React.FC = () => {
   return (
     <div className="container py-4">
       <PageMeta title="Insurance Search" description="Search by BIN / PCN / Rx Group using mock data." />
-      <AutoBreadcrumb title="Insurance Search" />
+  
+      <div className="d-flex flex-column align-items-center text-center mb-4">
+        <AutoBreadcrumb title="Insurance Search" description="Search for medicines based on insurance criteria — all mock data until we connect the API." />
+      </div>
 
-      <div className="row g-4 justify-content-center">
-        <div className="col-12 col-lg-8">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <div className="text-center mb-3">
-                <h5 className="mb-1">Insurance Search</h5>
-                <div className="text-muted">
-                  Search for drugs based on BIN, PCN, and Rx Group criteria — all mock data until we connect the API.
-                </div>
-              </div>
-
+      <div className="row justify-content-center">
+        <div className="col-12 col-lg-10 col-xl-8">
+          <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+            <div className="card-header bg- text-white py-4 px-5">
+              <h4 className="mb-0 fw-semibold">
+                <i className="ti ti-building-bank me-2"></i>
+                Insurance Search
+              </h4>
+              <p className="mb-0 opacity-75 mt-2">
+                Search for drugs based on BIN, PCN, and Rx Group criteria — all mock data until we connect the API.
+              </p>
+            </div>
+            
+            <div className="card-body p-5">
               {/* Toggle limit search */}
-              <div className="d-flex align-items-center justify-content-between border-top pt-3 pb-1 mb-3">
-                <label htmlFor="limitSearch" className="form-label m-0">
+              <div className="d-flex align-items-center justify-content-between bg-light rounded-3 p-3 mb-4">
+                <label htmlFor="limitSearch" className="form-label m-0 fw-medium">
+                  <i className="ti ti-filter me-1"></i>
                   Limit search to selected insurance data
                 </label>
                 <div className="form-check form-switch m-0">
@@ -401,25 +408,36 @@ const InsuranceSearch: React.FC = () => {
                     type="checkbox"
                     checked={limitSearch}
                     onChange={() => { clearAll(); setLimitSearch(!limitSearch); }}
+                    style={{ width: "2.5em" }}
                   />
                 </div>
               </div>
 
               {/* BIN */}
               <div className="mb-4 position-relative js-suggest">
-                <label className="form-label">Type BIN or Insurance Name</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="ti ti-search" /></span>
+                <label className="form-label fw-medium text-dark mb-2">
+                  <i className="ti ti-id me-1"></i>
+                  Type BIN or Insurance Name
+                </label>
+                <div className="input-group input-group-lg">
+                  <span className="input-group-text bg-light border-end-0">
+                    <i className="ti ti-search text-primary" />
+                  </span>
                   <input
                     type="text"
-                    className="form-control"
+                    className="form-control border-start-0 ps-2"
                     placeholder="e.g., 610011 or Optum"
                     value={binQuery}
                     onChange={e => setBinQuery(e.target.value)}
                     onFocus={() => setShowBinSuggestions(true)}
+                    style={{ height: "52px" }}
                   />
                   {binQuery && (
-                    <button className="btn btn-outline-secondary" onClick={clearAll}>
+                    <button 
+                      className="btn btn-outline-secondary d-flex align-items-center" 
+                      onClick={clearAll}
+                      style={{ height: "52px" }}
+                    >
                       <i className="ti ti-x" />
                     </button>
                   )}
@@ -427,7 +445,7 @@ const InsuranceSearch: React.FC = () => {
 
                 {showBinSuggestions && binSuggestions.length > 0 && (
                   <div
-                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                     style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
                     role="listbox"
                     aria-label="BIN suggestions"
@@ -435,10 +453,13 @@ const InsuranceSearch: React.FC = () => {
                     {binSuggestions.map(b => (
                       <button
                         key={b.id}
-                        className="list-group-item list-group-item-action border-0"
+                        className="list-group-item list-group-item-action border-0 py-3 px-4"
                         onClick={() => onPickBin(b)}
                       >
-                        {b.bin} {b.name ? `- ${b.name}` : ""}
+                        <div className="d-flex justify-content-between align-items-center">
+                          <span className="fw-medium">{b.bin}</span>
+                          <span className="text-muted small">{b.name}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -448,18 +469,27 @@ const InsuranceSearch: React.FC = () => {
               {/* PCN */}
               {pcnList.length > 0 && (
                 <div className="mb-4 position-relative js-suggest">
-                  <label className="form-label">Search for PCN</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g., MEDI-RX…"
-                    value={pcnSearchQuery}
-                    onChange={e => setPcnSearchQuery(e.target.value)}
-                    onFocus={() => setShowPcnSuggestions(true)}
-                  />
+                  <label className="form-label fw-medium text-dark mb-2">
+                    <i className="ti ti-id-badge me-1"></i>
+                    Search for PCN
+                  </label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0">
+                      <i className="ti ti-search text-primary" />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      placeholder="e.g., MEDI-RX…"
+                      value={pcnSearchQuery}
+                      onChange={e => setPcnSearchQuery(e.target.value)}
+                      onFocus={() => setShowPcnSuggestions(true)}
+                      style={{ height: "52px" }}
+                    />
+                  </div>
                   {showPcnSuggestions && filteredPcnList.length > 0 && (
                     <div
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                       style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
                       role="listbox"
                       aria-label="PCN suggestions"
@@ -467,7 +497,7 @@ const InsuranceSearch: React.FC = () => {
                       {filteredPcnList.map(p => (
                         <button
                           key={p.id}
-                          className="list-group-item list-group-item-action border-0"
+                          className="list-group-item list-group-item-action border-0 py-3 px-4"
                           onClick={() => onPickPcn(p)}
                         >
                           {p.pcn}
@@ -481,18 +511,27 @@ const InsuranceSearch: React.FC = () => {
               {/* Rx Group */}
               {rxGroups.length > 0 && (
                 <div className="mb-4 position-relative js-suggest">
-                  <label className="form-label">Search for Rx Group</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g., Medi-Cal Plus…"
-                    value={rxGroupSearchQuery}
-                    onChange={e => setRxGroupSearchQuery(e.target.value)}
-                    onFocus={() => setShowRxGroupSuggestions(true)}
-                  />
+                  <label className="form-label fw-medium text-dark mb-2">
+                    <i className="ti ti-users me-1"></i>
+                    Search for Rx Group
+                  </label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0">
+                      <i className="ti ti-search text-primary" />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      placeholder="e.g., Medi-Cal Plus…"
+                      value={rxGroupSearchQuery}
+                      onChange={e => setRxGroupSearchQuery(e.target.value)}
+                      onFocus={() => setShowRxGroupSuggestions(true)}
+                      style={{ height: "52px" }}
+                    />
+                  </div>
                   {showRxGroupSuggestions && filteredRxGroupList.length > 0 && (
                     <div
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                       style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
                       role="listbox"
                       aria-label="Rx Group suggestions"
@@ -500,7 +539,7 @@ const InsuranceSearch: React.FC = () => {
                       {filteredRxGroupList.map(rx => (
                         <button
                           key={rx.id}
-                          className="list-group-item list-group-item-action border-0"
+                          className="list-group-item list-group-item-action border-0 py-3 px-4"
                           onClick={() => onPickRx(rx)}
                         >
                           {rx.rxGroup}
@@ -514,19 +553,28 @@ const InsuranceSearch: React.FC = () => {
               {/* Drug search (with infinite scroll) */}
               {(selectedBin?.bin ?? "").length > 0 && (
                 <div className="mb-4 position-relative js-suggest">
-                  <label className="form-label">Search for Drug</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g., Metformin"
-                    value={drugSearchQuery}
-                    onChange={e => setDrugSearchQuery(e.target.value)}
-                    onFocus={() => setShowDrugSuggestions(true)}
-                  />
+                  <label className="form-label fw-medium text-dark mb-2">
+                    <i className="ti ti-pill me-1"></i>
+                    Search for Drug
+                  </label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0">
+                      <i className="ti ti-search text-primary" />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      placeholder="e.g., Metformin"
+                      value={drugSearchQuery}
+                      onChange={e => setDrugSearchQuery(e.target.value)}
+                      onFocus={() => setShowDrugSuggestions(true)}
+                      style={{ height: "52px" }}
+                    />
+                  </div>
                   {showDrugSuggestions && filterDrugNames.length > 0 && (
                     <div
                       ref={dropdownRef}
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                       style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
                       role="listbox"
                       aria-label="Drug suggestions"
@@ -534,14 +582,18 @@ const InsuranceSearch: React.FC = () => {
                       {filterDrugNames.map(d => (
                         <button
                           key={d.id}
-                          className="list-group-item list-group-item-action border-0"
+                          className="list-group-item list-group-item-action border-0 py-3 px-4"
                           onClick={() => onPickDrug(d)}
                         >
-                          {d.name}
+                          <div className="d-flex align-items-center">
+                            <i className="ti ti-pill text-primary me-2"></i>
+                            {d.name}
+                          </div>
                         </button>
                       ))}
                       {filterDrugNames.length >= PAGE_SIZE * currentPage && (
-                        <div className="text-center small text-muted py-2 border-top">
+                        <div className="text-center small text-muted py-3 border-top">
+                          <i className="ti ti-loader me-1"></i>
                           Loading more…
                         </div>
                       )}
@@ -553,18 +605,27 @@ const InsuranceSearch: React.FC = () => {
               {/* NDC search */}
               {ndcList.length > 0 && (
                 <div className="mb-4 position-relative js-suggest">
-                  <label className="form-label">Search for NDC</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Type to filter NDCs…"
-                    value={ndcSearchQuery}
-                    onChange={e => setNdcSearchQuery(e.target.value)}
-                    onFocus={() => setShowNdcSuggestions(true)}
-                  />
+                  <label className="form-label fw-medium text-dark mb-2">
+                    <i className="ti ti-barcode me-1"></i>
+                    Search for NDC
+                  </label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0">
+                      <i className="ti ti-search text-primary" />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      placeholder="Type to filter NDCs…"
+                      value={ndcSearchQuery}
+                      onChange={e => setNdcSearchQuery(e.target.value)}
+                      onFocus={() => setShowNdcSuggestions(true)}
+                      style={{ height: "52px" }}
+                    />
+                  </div>
                   {showNdcSuggestions && filteredNdcList.length > 0 && (
                     <div
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                       style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
                       role="listbox"
                       aria-label="NDC suggestions"
@@ -572,10 +633,13 @@ const InsuranceSearch: React.FC = () => {
                       {filteredNdcList.map((ndc, i) => (
                         <button
                           key={`${ndc}-${i}`}
-                          className="list-group-item list-group-item-action border-0"
+                          className="list-group-item list-group-item-action border-0 py-3 px-4"
                           onClick={() => onPickNdc(ndc)}
                         >
-                          {ndc}
+                          <div className="d-flex align-items-center">
+                            <i className="ti ti-barcode text-primary me-2"></i>
+                            {ndc}
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -585,9 +649,14 @@ const InsuranceSearch: React.FC = () => {
 
               {/* Preview (mock) */}
               {details && (
-                <div className="alert alert-secondary">
-                  <div className="fw-semibold mb-1">Net Price</div>
-                  <div>{details.net != null ? `$${details.net}` : "N/A"}</div>
+                <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
+                  <div className="bg-white p-3 rounded-3">
+                    <i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <div className="fw-semibold">Estimated Net Price</div>
+                    <div className="fs-5 fw-bold">{details.net != null ? `$${details.net}` : "N/A"}</div>
+                  </div>
                 </div>
               )}
 
@@ -595,11 +664,12 @@ const InsuranceSearch: React.FC = () => {
               {selectedDrug && selectedNdc && (
                 <button
                   type="button"
-                  className="btn btn-primary w-100"
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
                   data-bs-toggle="modal"
                   data-bs-target="#insDetailsModal"
                 >
-                  View Drug Details <i className="ti ti-external-link ms-1" />
+                  <i className="ti ti-file-text me-2"></i>
+                  View Drug Details
                 </button>
               )}
             </div>
@@ -610,20 +680,50 @@ const InsuranceSearch: React.FC = () => {
       {/* Modal with all selections (mock) */}
       <div className="modal fade" id="insDetailsModal" tabIndex={-1} aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h6 className="modal-title">Drug Details (Mock)</h6>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close" />
+          <div className="modal-content border-0 shadow-lg">
+            <div className="modal-header bg-primary text-white">
+              <h6 className="modal-title">
+                <i className="ti ti-info-circle me-2"></i>
+                Drug Details (Mock)
+              </h6>
+              <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" />
             </div>
             <div className="modal-body">
-              <div className="mb-2"><span className="text-muted">BIN:</span> <strong>{selectedBin ? `${selectedBin.name ?? ""}${selectedBin.name ? " - " : ""}${selectedBin.bin}` : "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">PCN:</span> <strong>{selectedPcn?.pcn ?? "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Rx Group:</span> <strong>{selectedRxGroup?.rxGroup ?? "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Drug:</span> <strong>{selectedDrug?.name ?? "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">NDC:</span> <strong>{selectedNdc || "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Net:</span> <strong>{details?.net != null ? `$${details.net}` : "-"}</strong></div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">BIN:</div>
+                  <div className="fw-semibold">{selectedBin ? `${selectedBin.name ?? ""}${selectedBin.name ? " - " : ""}${selectedBin.bin}` : "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">PCN:</div>
+                  <div className="fw-semibold">{selectedPcn?.pcn ?? "-"}</div>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">Rx Group:</div>
+                  <div className="fw-semibold">{selectedRxGroup?.rxGroup ?? "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">Drug:</div>
+                  <div className="fw-semibold">{selectedDrug?.name ?? "-"}</div>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">NDC:</div>
+                  <div className="fw-semibold">{selectedNdc || "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">Net Price:</div>
+                  <div className="fw-semibold">{details?.net != null ? `$${details.net}` : "-"}</div>
+                </div>
+              </div>
               <hr />
-              <div className="small text-muted">All values are mock data until the API is connected.</div>
+              <div className="small text-muted">
+                <i className="ti ti-info-circle me-1"></i>
+                All values are mock data until the API is connected.
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-light" data-bs-dismiss="modal">Close</button>

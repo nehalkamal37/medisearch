@@ -235,7 +235,7 @@ const Sidebar = () => {
                             tabIndex={0}
                           >
                             <i className={`ti ti-${title.icon}`}></i>
-                            <span>{t(`sidebar.${title?.label}`)}</span>
+<span>{t(`sidebar.${title?.label}`, title?.label)}</span>
                             {title.label === "Changelog" && (
                               <span className="badge badge-sm bg-success" style={{ marginLeft: 8 }}>v1.0</span>
                             )}
@@ -271,7 +271,7 @@ const Sidebar = () => {
                                       }}
                                       tabIndex={0}
                                     >
-                                      {t(`sidebar.${item?.label}`)}
+{t(`sidebar.${item?.label}`, item?.label)}
                                       {item?.submenu && (
                                         <span className="menu-arrow custome-menu"></span>
                                       )}

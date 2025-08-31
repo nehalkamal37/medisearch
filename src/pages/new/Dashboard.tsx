@@ -2,23 +2,99 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { DrugTransaction } from "../../types";
 import { motion } from "framer-motion";
-import FiltersBar from "./FiltersBar";
 
-/* ============ date helpers ============ */
+
+// ====== CountUp hook (animated numbers) ======
+function useCountUp(value: number, duration = 1000) {
+  const [display, setDisplay] = React.useState(0);
+  const lastRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const from = lastRef.current;
+    const to = Number.isFinite(value) ? value : 0;
+    const start = performance.now();
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = easeOutCubic(t);
+      setDisplay(from + (to - from) * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else lastRef.current = to;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+
+  return display;
+}
+
+const fmtCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0);
+
+const fmtInt = (n: number) =>
+  Math.round(n || 0).toLocaleString();
+
+// ====== Reusable KPI card ======
+function KpiCard({
+  title,
+  value,
+  iconClass,
+  variant = "primary",
+  isMoney = false,
+  duration = 900,
+}: {
+  title: string;
+  value: number;
+  iconClass: string;         // e.g. "ti ti-pill"
+  variant?: "primary" | "danger" | "success" | "purple";
+  isMoney?: boolean;
+  duration?: number;
+}) {
+  const animated = useCountUp(value, duration);
+
+  const bg =
+    variant === "primary" ? "bg-primary" :
+    variant === "danger"  ? "bg-danger"  :
+    variant === "success" ? "bg-success" :
+    "bg-purple";
+
+  return (
+    <div className="card pb-2 h-100">
+      <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
+        <div className="d-flex align-items-center overflow-hidden">
+          <span className={`avatar ${bg} rounded-circle flex-shrink-0`}>
+            <i className={`${iconClass} fs-20`} />
+          </span>
+          <div className="ms-2 overflow-hidden">
+            <p className="mb-1 text-truncate">{title}</p>
+            <h5 className="mb-0">
+              {isMoney ? fmtCurrency(animated) : fmtInt(animated)}
+            </h5>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+/* ===== helpers (dates) ===== */
 const toSafeDate = (d: any) => {
   if (!d) return new Date("Invalid");
   const s = typeof d === "string" ? d.replace(" ", "T") : d;
   return new Date(s);
 };
 const isValidDate = (d: any) => !isNaN(toSafeDate(d).getTime());
-const monthKey = (d: any) =>
-  isValidDate(d) ? toSafeDate(d).toISOString().slice(0, 7) : "";
+const monthKey = (d: any) => (isValidDate(d) ? toSafeDate(d).toISOString().slice(0, 7) : "");
 const formatDate = (d: any, locale = "en-US") => {
   const dt = toSafeDate(d);
   return isValidDate(dt) ? dt.toLocaleDateString(locale) : "-";
 };
 
-/* ============ mocks ============ */
+/* ===== mock data (نفس اللي عندك) ===== */
 interface DashboardProps { data?: DrugTransaction[]; }
 const seeded = (seed: number) => { const x = Math.sin(seed) * 10000; return x - Math.floor(x); };
 const pick = <T,>(arr: T[], seed: number) => arr[Math.floor(seeded(seed) * arr.length)];
@@ -107,7 +183,7 @@ function makeMockTransactions(count = 120): DrugTransaction[] {
   return rows as DrugTransaction[];
 }
 
-/* ============ mapping ============ */
+/* ===== insurance mapping ===== */
 const insurance_mapping: Record<string, string> = {
   AL: "Aetna (AL)", BW: "aetna (BW)", AD: "Aetna Medicare (AD)", AF: "Anthem BCBS (AF)",
   DS: "Blue Cross Blue Shield (DS)", CA: "blue shield medicare (CA)", FQ: "Capital Rx (FQ)",
@@ -120,6 +196,18 @@ const insurance_mapping: Record<string, string> = {
   DW: "phcs (DW)", AX: "PINNACLE (AX)", BN: "Prescription Solutions (BN)",
   AA: "Tri-Care Express Scripts (AA)", AI: "United Healthcare (AI)",
 };
+
+/* ===== UI bits شبيهة بـ Preferences ===== */
+function FilterTile({ label, children }: React.PropsWithChildren<{ label: string }>) {
+  return (
+    <div className="col-xxl-4 col-xl-4 col-sm-6">
+      <div className="d-flex justify-content-between align-items-center border rounded bg-light p-3">
+        <h6 className="fw-semibold mb-0 fs-14">{label}</h6>
+        <div className="ms-3" style={{ minWidth: 190 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
 
 const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
   const initialRows = useMemo<DrugTransaction[]>(
@@ -142,17 +230,26 @@ const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
   const [belowNetPriceCount, setBelowNetPriceCount] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalNet, setTotalNet] = useState<number>(0);
+const [kpiLayout, setKpiLayout] = useState<"row" | "grid">("row");
 
   const rowsPerPage = 10;
+
+  
+useEffect(() => {
+  setKpiLayout("row");
+  localStorage.setItem("kpiLayout", "row");
+}, []);
+
+  useEffect(() => {
+    localStorage.setItem("kpiLayout", kpiLayout);
+  }, [kpiLayout]);
 
   useEffect(() => {
     const result = initialRows;
     setLatestScripts(result);
-
     const belowNetCount = result.filter((item) => item.netProfit < item.highestNet).length;
     const totalRev = result.reduce((sum, item) => sum + (item.netProfit || 0), 0);
     const totalNetProfit = result.reduce((sum, item) => sum + (item.highestNet || 0), 0);
-
     setBelowNetPriceCount(belowNetCount);
     setTotalRevenue(+totalRev.toFixed(2));
     setTotalNet(+totalNetProfit.toFixed(2));
@@ -193,7 +290,6 @@ const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
     const totalRev = filtered.reduce((sum, item) => sum + (item.netProfit || 0), 0);
     const totalNetProfit = filtered.reduce((sum, item) => sum + (item.highestNet || 0), 0);
 
-    // If current is already best, don’t add difference twice
     const difference = filtered.reduce(
       (sum, item) =>
         sum +
@@ -266,7 +362,7 @@ const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
 
-  /* --------- build filter options for FiltersBar --------- */
+  /* -------- options -------- */
   const months = useMemo(
     () =>
       Array.from(new Set(latestScripts.map((i) => monthKey((i as any).date))))
@@ -303,7 +399,6 @@ const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
   };
 
   const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n ?? 0);
-
   const sortIcon = (k: keyof DrugTransaction) => {
     if (!sortConfig || sortConfig.key !== k) return "ti ti-arrows-sort text-muted";
     return sortConfig.direction === "ascending" ? "ti ti-arrow-up" : "ti ti-arrow-down";
@@ -313,107 +408,215 @@ const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
     <motion.div>
       <div className="page-wrapper" id="main-content">
         <div className="content">
-          <h3 className="text-4xl font-extrabold text-blue-700 dark:text-blue-400 mb-6 text-center">
-            MisMatching Prescriptions (NDC ≠ Best NDC)
+          <h3 className="text-4xl font-extrabold text-blue-700 dark:text-blue-400 mb-4 text-center">
+            All Scripts Audits Dashboard
           </h3>
 
-          {/* KPI Cards (template look) */}
-          <div className="row g-3 mb-4">
-            <div className="col-xl-3 col-md-6 d-flex">
-              <div className="card pb-2 flex-fill">
-                <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                  <div className="d-flex align-items-center overflow-hidden">
-                    <span className="avatar bg-primary rounded-circle flex-shrink-0"><i className="ti ti-pill fs-20" /></span>
-                    <div className="ms-2 overflow-hidden">
-                      <p className="mb-1 text-truncate">Total Prescriptions</p>
-                      <h5 className="mb-0">{filteredData.length}</h5>
-                    </div>
-                  </div>
-                  <div className="text-end"><span className="badge badge-soft-success">+0%</span></div>
-                </div>
-              </div>
-            </div>
+          {/* KPIs */}
+         {/* ===== KPIs with layout toggle ===== */}
+<div className="d-flex align-items-center justify-content-between mb-2">
+  <span className="text-muted small">Overview</span>
 
-            <div className="col-xl-3 col-md-6 d-flex">
-              <div className="card pb-2 flex-fill">
-                <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                  <div className="d-flex align-items-center overflow-hidden">
-                    <span className="avatar bg-danger rounded-circle flex-shrink-0"><i className="ti ti-alert-triangle fs-20" /></span>
-                    <div className="ms-2 overflow-hidden">
-                      <p className="mb-1 text-truncate">Below Optimal Net Profit</p>
-                      <h5 className="mb-0">{belowNetPriceCount}</h5>
-                    </div>
-                  </div>
-                  <div className="text-end"><span className="badge badge-soft-danger">-</span></div>
-                </div>
-              </div>
-            </div>
+  {/* زرار تبديل الترتيب: صف 1×4 أو شبكة 2×2 */}
+  <div className="btn-group">
+    <button
+      type="button"
+      className={`btn btn-sm btn-outline-light ${kpiLayout === "row" ? "active" : ""}`}
+      title="1 × 4"
+      onClick={() => setKpiLayout("row")}
+    >
+      <i className="ti ti-layout-navbar" />
+    </button>
+    <button
+      type="button"
+      className={`btn btn-sm btn-outline-light ${kpiLayout === "grid" ? "active" : ""}`}
+      title="2 × 2"
+      onClick={() => setKpiLayout("grid")}
+    >
+      <i className="ti ti-layout-grid" />
+    </button>
+  </div>
+</div>
 
-            <div className="col-xl-3 col-md-6 d-flex">
-              <div className="card pb-2 flex-fill">
-                <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                  <div className="d-flex align-items-center overflow-hidden">
-                    <span className="avatar bg-success rounded-circle flex-shrink-0"><i className="ti ti-chart-line fs-20" /></span>
-                    <div className="ms-2 overflow-hidden">
-                      <p className="mb-1 text-truncate">Estimated Max. Net Profit</p>
-                      <h5 className="mb-0">{money(totalNet)}</h5>
-                    </div>
-                  </div>
-                  <div className="text-end"><span className="badge badge-soft-success">+✓</span></div>
-                </div>
-              </div>
-            </div>
+<div className="row g-3 mb-4">
+  {/* لو Grid: اتنين فوق واتنين تحت / لو Row: أربعة جنب بعض */}
+  <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
+    <KpiCard
+      title="Total Prescriptions"
+      value={filteredData.length}
+      iconClass="ti ti-pill"
+      variant="primary"
+      isMoney={false}
+    />
+  </div>
 
-            <div className="col-xl-3 col-md-6 d-flex">
-              <div className="card pb-2 flex-fill">
-                <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                  <div className="d-flex align-items-center overflow-hidden">
-                    <span className="avatar bg-purple rounded-circle flex-shrink-0"><i className="ti ti-chart-bar fs-20" /></span>
-                    <div className="ms-2 overflow-hidden">
-                      <p className="mb-1 text-truncate">Current Total Net Profit</p>
-                      <h5 className="mb-0">{money(totalRevenue)}</h5>
-                    </div>
-                  </div>
-                  <div className="text-end"><span className="badge badge-soft-success">+0%</span></div>
-                </div>
+  <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
+    <KpiCard
+      title="Below Optimal Net Profit"
+      value={belowNetPriceCount}
+      iconClass="ti ti-alert-triangle"
+      variant="danger"
+      isMoney={false}
+      duration={1100}
+    />
+  </div>
+
+  <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
+    <KpiCard
+      title="Estimated Max. Net Profit"
+      value={totalNet}
+      iconClass="ti ti-chart-line"
+      variant="success"
+      isMoney={true}
+      duration={1200}
+    />
+  </div>
+
+  <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
+    <KpiCard
+      title="Current Total Net Profit"
+      value={totalRevenue}
+      iconClass="ti ti-chart-bar"
+      variant="purple"
+      isMoney={true}
+      duration={1200}
+    />
+  </div>
+</div>
+
+          {/* ===== Filters (Preferences-style tiles) ===== */}
+          <div className="card mb-3">
+            <div className="card-header border-0 pb-1">
+              <h5 className="mb-0 pt-2">Filters</h5>
+            </div>
+            <div className="card-body">
+              <div className="row row-gap-4">
+                <FilterTile label="Month">
+                  <select className="form-select form-select-sm" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
+                    <option value="">All</option>
+                    {months.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </FilterTile>
+
+                <FilterTile label="Drug Class">
+                  <select className="form-select form-select-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+                    <option value="">All</option>
+                    {classesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </FilterTile>
+
+                <FilterTile label="Insurance / Rx Group">
+                  <select className="form-select form-select-sm" value={selectedInsurance} onChange={(e) => setSelectedInsurance(e.target.value)}>
+                    <option value="">All</option>
+                    {insurancesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </FilterTile>
+
+                <FilterTile label="Prescriber">
+                  <select className="form-select form-select-sm" value={selectedPrescriber} onChange={(e) => setSelectedPrescriber(e.target.value)}>
+                    <option value="">All</option>
+                    {prescribersOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </FilterTile>
+
+                <FilterTile label="User">
+                  <select className="form-select form-select-sm" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
+                    <option value="">All</option>
+                    {usersOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </FilterTile>
+
+                <FilterTile label="Branch">
+                  <select className="form-select form-select-sm" value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}>
+                    <option value="">All</option>
+                    {branchesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </FilterTile>
+              </div>
+
+              <div className="d-flex align-items-center justify-content-end gap-2 border-top mt-4 pt-3">
+                <button type="button" className="btn btn-outline-light me-2" onClick={resetFilters}>
+                  Reset
+                </button>
+                <button type="button" className="btn btn-primary" onClick={downloadCSV}>
+                  <i className="ti ti-cloud-download me-1" /> Export CSV
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Filters (same look via FiltersBar) */}
-          <FiltersBar
-            months={months}
-            classes={classesOpts}
-            insurances={insurancesOpts}
-            prescribers={prescribersOpts}
-            users={usersOpts}
-            branches={branchesOpts}
-            selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth}
-            selectedClass={selectedClass} setSelectedClass={setSelectedClass}
-            selectedInsurance={selectedInsurance} setSelectedInsurance={setSelectedInsurance}
-            selectedPrescriber={selectedPrescriber} setSelectedPrescriber={setSelectedPrescriber}
-            selectedUser={selectedUser} setSelectedUser={setSelectedUser}
-            selectedBranch={selectedBranch} setSelectedBranch={setSelectedBranch}
-            onDownload={downloadCSV}
-            onReset={resetFilters}
-          />
+          {/* ===== Card + Table (Visits-style) ===== */}
+          <div className="card mb-0">
+            <div className="card-header d-flex align-items-center flex-wrap gap-2 justify-content-between">
+              <h5 className="d-inline-flex align-items-center mb-0">
+                All Scripts <span className="badge bg-danger ms-2">{filteredData.length}</span>
+              </h5>
 
-          
-          {/* CSV button (kept below filters) */}
-          <div className="mb-3">
-            <button className="btn btn-primary" onClick={downloadCSV}>
-              <i className="ti ti-download me-2" />
-              Download CSV
-            </button>
-          </div>
-          
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-icon btn-white"
+                  title="Refresh"
+                  onClick={() => window.location.reload()}
+                >
+                  <i className="ti ti-refresh" />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-icon btn-white"
+                  title="Print"
+                  onClick={() => window.print()}
+                >
+                  <i className="ti ti-printer" />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-icon btn-white"
+                  title="Download"
+                  onClick={downloadCSV}
+                >
+                  <i className="ti ti-cloud-download" />
+                </button>
 
-          {/* TABLE (template style: compact, hover, sticky head, right-aligned numbers, sort icons) */}
-          <div className="card">
-            <div className="card-body p-0">
+                {/* Sort By (quick) */}
+                <div className="dropdown">
+                  <button
+                    className="dropdown-toggle btn btn-md btn-outline-light d-inline-flex align-items-center"
+                    data-bs-toggle="dropdown"
+                    aria-haspopup="true"
+                    aria-expanded="false"
+                  >
+                    <i className="ti ti-sort-descending-2 me-1" />
+                    <span className="me-1">Sort By : </span> {sortConfig?.key === "date" && sortConfig.direction === "ascending" ? "Oldest" : "Newest"}
+                  </button>
+                  <ul className="dropdown-menu dropdown-menu-end p-2">
+                    <li>
+                      <button
+                        type="button"
+                        className="dropdown-item rounded-1"
+                        onClick={() => setSortConfig({ key: "date" as keyof DrugTransaction, direction: "descending" })}
+                      >
+                        Newest
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className="dropdown-item rounded-1"
+                        onClick={() => setSortConfig({ key: "date" as keyof DrugTransaction, direction: "ascending" })}
+                      >
+                        Oldest
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="card-body">
               <div className="table-responsive table-nowrap">
-                <table className="table table-sm table-hover mb-0 align-middle">
-                  <thead className="table-light sticky-top" style={{ top: 0, zIndex: 1 }}>
+                <table className="table mb-0 border align-middle">
+                  <thead className="table-light">
                     <tr>
                       {[
                         { label: "Date", key: "date" as keyof DrugTransaction },
@@ -601,29 +804,30 @@ const FirstDashboard: React.FC<DashboardProps> = ({ data }) => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination (نفس الزرار اللي عندك) */}
+              <div className="d-flex align-items-center justify-content-between mt-3">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="btn btn-outline-light d-inline-flex align-items-center"
+                >
+                  <ChevronLeft className="me-1" size={16} /> Previous
+                </button>
+                <span className="text-muted">
+                  Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="btn btn-outline-light d-inline-flex align-items-center"
+                >
+                  Next <ChevronRight className="ms-1" size={16} />
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Pagination */}
-          <div className="d-flex align-items-center justify-content-between mt-3">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
-              className="btn btn-outline-light d-inline-flex align-items-center"
-            >
-              <ChevronLeft className="me-1" size={16} /> Previous
-            </button>
-            <span className="text-muted">
-              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-            </span>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="btn btn-outline-light d-inline-flex align-items-center"
-            >
-              Next <ChevronRight className="ms-1" size={16} />
-            </button>
-          </div>
+          {/* /card */}
         </div>
       </div>
     </motion.div>

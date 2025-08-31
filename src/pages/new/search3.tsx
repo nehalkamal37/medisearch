@@ -243,18 +243,25 @@ const Search3: React.FC = () => {
   };
 
   return (
-    <div className="container py-4">
-      <PageMeta
-        title="Rx Group → Drug → NDC Search"
-        description="Search by Rx Group, then pick a drug and NDC — all mock data until the API is connected."
-        canonical={window.location.origin + "/search3"}
-      />
-      <AutoBreadcrumb title="RxGroup, Drugs & NDC" />
+   
+  <div className="container py-4">
+  <PageMeta
+    title="Rx Group → Drug → NDC Search"
+    description="Search by Rx Group, then pick a drug and NDC — all mock data until the API is connected."
+    canonical={window.location.origin + "/search3"}
+  />
 
-      <div className="row g-4 justify-content-center">
-        <div className="col-12 col-lg-8">
-          <div className="card shadow-sm">
-            <div className="card-body">
+  {/* Centered breadcrumb block */}
+  <div className="d-flex flex-column align-items-center text-center mb-4">
+    <AutoBreadcrumb title="RxGroup, Drugs & NDC" />
+  </div>
+
+  <div className="row g-4 justify-content-center right-0">
+    <div className="col-12 col-lg-8">
+      <div className="card shadow-sm">
+        <div className="card-body">
+        
+
               <div className="text-center mb-3">
                 <h5 className="mb-1">RxGroup, Drugs & NDC</h5>
                 <div className="text-muted">

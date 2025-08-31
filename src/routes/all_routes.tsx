@@ -5,6 +5,8 @@ export const all_routes = {
   dashboard: "/index", // alias for index.html
   
   // ... الباقي
+ 
+ home:"/home",
   drugSearch: "/search1",
   insuranceSearch: "/search-insurance",
       search3: "/search3",
@@ -13,7 +15,7 @@ export const all_routes = {
        dashboard1: "/dashboard1",
   dashboard2: "/dashboard2",
   dashboard3: "/dashboard3",
-
+   help:"help",
   chat: "/chat",
   voiceCall: "/voice-call",
   videoCall: "/video-call",

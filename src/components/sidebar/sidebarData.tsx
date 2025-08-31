@@ -4,17 +4,20 @@ const route = all_routes;
 export const SidebarData = [
   {
     tittle: "MAIN",
+    
     submenuItems: [
       {
-        label: "Dashboard",
-        link: route.dashboard,
+        label: "Home",
+        link: route.home,
         submenu: false,
         icon: "layout-board",
         submenuItems: [],
       },
+      
       // داخل مجموعة MAIN → Search
 {
   label: "Search",
+  title:"search",
    link: "#",
   submenu: true,
   icon: "search",
@@ -42,7 +45,7 @@ export const SidebarData = [
 
     ]
   },
-      
+      /*
       {
         label: "Applications",
         link: "#",
@@ -199,8 +202,10 @@ export const SidebarData = [
           },
         ],
       },
+      */
     ],
   },
+  /*
   {
     tittle: "Healthcare",
     submenuItems: [
@@ -923,4 +928,5 @@ export const SidebarData = [
       },
     ],
   },
+  */
 ];
