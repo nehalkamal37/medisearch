@@ -49,7 +49,7 @@ const Login = () => {
         localStorage.setItem('userEmail', formData.email);
         
         // Redirect to dashboard
-        navigate(all_routes.dashboard);
+        navigate(all_routes.drugSearch);
       }, 1500);
     } else {
       alert('Invalid credentials. Please use admin@dreamsemr.com / admin123');
@@ -79,9 +79,9 @@ const Login = () => {
                     <Link to={all_routes.dashboard} className="logo d-inline-block">
                       <ImageWithBasePath
                         src="assets/img/logo-dark.svg"
-                        className="img-fluid "
+                        className="img-fluid h-[40]"
                         alt="Logo"
-                        style={{ height: "40px" }}
+                     //   style={{ height: "40px" }}
                       />
                     </Link>
                   </div>
@@ -172,8 +172,8 @@ const Login = () => {
                         <span className="text-muted small">MediSearch</span>
                       </div>
                     </div>
-                    
-                   
+                  
+                 
                   </form>
                 </div>
               </div>

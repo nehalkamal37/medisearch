@@ -22,7 +22,7 @@ interface RxGroupModel {
 }
 interface ClassInfo {
   id: number;        // internal id of the class record
-  classId: number;   // “business” class id used by drugs
+  classId: number;   // "business" class id used by drugs
   className: string;
   classType: string; // e.g., "ClassV1"
 }
@@ -139,7 +139,7 @@ ALL_CLASS_INFOS.forEach(ci => {
   DRUGS_BY_CLASS[ci.classId] = Array.from({ length: 6 }, (_, i) => makeDrugForClass(ci, i));
 });
 
-// Tiny mock “net” calculator for details preview
+// Tiny mock "net" calculator for details preview
 function mockNet(ndc: string, rxGroupId?: number) {
   const base = ndc.split("").reduce((s, c) => s + c.charCodeAt(0), 0) % 130;
   return +(((base / 10) + ((rxGroupId ?? 0) % 7)).toFixed(2));
@@ -189,7 +189,7 @@ const InsuranceSearch2: React.FC = () => {
   const [selectedDrug, setSelectedDrug] = useState<DrugModel | null>(null);
   const [ndcList, setNdcList] = useState<string[]>([]);
   const [selectedNdc, setSelectedNdc] = useState("");
-
+void drugs; void classInfos; void selectedPcn;
   // Suggestions helpers
   const filteredBins = useMemo(() => {
     const q = binQuery.toLowerCase();
@@ -353,24 +353,30 @@ const InsuranceSearch2: React.FC = () => {
         description="Search by BIN → PCN → Rx Group, then by Drug Class — mock data until API hookup."
         canonical={window.location.origin + "/insurance-search-2"}
       />
-        <div className="d-flex flex-column align-items-center text-center mb-4">
-      <AutoBreadcrumb title="Insurance Search (Drug Class)" />
-  </div>
+      
+      <div className="d-flex flex-column align-items-center text-center mb-4">
+        <AutoBreadcrumb title="Insurance Search (Drug Class)" 
+         />
+      </div>
 
-      <div className="row g-4 justify-content-center">
-        <div className="col-12 col-lg-8">
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <div className="text-center mb-3">
-                <h5 className="mb-1">Insurance Search Using Drug Class</h5>
-                <div className="text-muted">
-                  Type BIN/PCN/Rx Group, then search Drug Class. All values are mock data.
-                </div>
-              </div>
-
+      <div className="row justify-content-center">
+        <div className="col-12 col-lg-10 col-xl-8">
+          <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+            <div className="card-header bg- text-white py-4 px-5">
+              <h4 className="mb-0 fw-semibold">
+                <i className="ti ti-building-bank me-2"></i>
+                Insurance Search (Drug Class)
+              </h4>
+              <p className="mb-0 opacity-75 mt-2">
+                Type BIN/PCN/Rx Group, then search Drug Class. All values are mock data until API connection.
+              </p>
+            </div>
+            
+            <div className="card-body p-5">
               {/* Toggle */}
-              <div className="d-flex align-items-center justify-content-between border-top pt-3 pb-2 mb-3">
-                <label htmlFor="limitSearch" className="form-label m-0">
+              <div className="d-flex align-items-center justify-content-between bg-light rounded-3 p-3 mb-4">
+                <label htmlFor="limitSearch" className="form-label m-0 fw-medium">
+                  <i className="ti ti-filter me-1"></i>
                   Limit search to selected insurance data
                 </label>
                 <div className="form-check form-switch m-0">
@@ -380,197 +386,265 @@ const InsuranceSearch2: React.FC = () => {
                     type="checkbox"
                     checked={limitSearch}
                     onChange={() => { clearAll(); setLimitSearch(!limitSearch); }}
+                    style={{ width: "2.5em" }}
                   />
                 </div>
               </div>
 
-              {/* BIN */}
-              <div className="mb-4 position-relative">
-                <label className="form-label">Type BIN or Insurance Name</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="ti ti-search" /></span>
-                  <input
-                    type="text"
-                    value={binQuery}
-                    onChange={(e) => setBinQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowBinSuggestions(true); }}
-                    placeholder="e.g., 012345 or Medi-Cal"
-                    className="form-control"
-                  />
-                  {binQuery && (
-                    <button className="btn btn-outline-secondary" onClick={clearAll}>
-                      <i className="ti ti-x" />
-                    </button>
-                  )}
-                </div>
-                {showBinSuggestions && filteredBins.length > 0 && (
-                  <div
-                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
-                    style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
-                    role="listbox"
-                  >
-                    {filteredBins.map(b => (
-                      <button
-                        key={b.id}
-                        className="list-group-item list-group-item-action border-0 text-start"
-                        onClick={() => onSelectBin(b)}
+              {/* Insurance Information Section */}
+              <div className="mb-4">
+                <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2">
+                  <i className="ti ti-id me-2"></i>
+                  Insurance Information
+                </h6>
+                
+                <div className="row g-3">
+                  {/* BIN */}
+                  <div className="col-md-6 position-relative">
+                    <label className="form-label fw-medium text-dark mb-2">BIN or Insurance Name</label>
+                    <div className="input-group input-group-lg">
+                      <span className="input-group-text bg-light border-end-0">
+                        <i className="ti ti-search text-primary" />
+                      </span>
+                      <input
+                        type="text"
+                        value={binQuery}
+                        onChange={(e) => setBinQuery(e.target.value)}
+                        onFocus={() => { hideAllSuggestions(); setShowBinSuggestions(true); }}
+                        placeholder="e.g., 012345 or Medi-Cal"
+                        className="form-control border-start-0 ps-2"
+                        style={{ height: "52px" }}
+                      />
+                      {binQuery && (
+                        <button 
+                          className="btn btn-outline-secondary d-flex align-items-center" 
+                          onClick={clearAll}
+                          style={{ height: "52px" }}
+                        >
+                          <i className="ti ti-x" />
+                        </button>
+                      )}
+                    </div>
+                    {showBinSuggestions && filteredBins.length > 0 && (
+                      <div
+                        className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                        style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
+                        role="listbox"
                       >
-                        {b.bin} {b.name ? `- ${b.name}` : ""}
-                      </button>
-                    ))}
+                        {filteredBins.map(b => (
+                          <button
+                            key={b.id}
+                            className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                            onClick={() => onSelectBin(b)}
+                          >
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="fw-medium">{b.bin}</span>
+                              <span className="text-muted small">{b.name}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* PCN */}
+                  {pncOr(selectedBin) && (
+                    <div className="col-md-6 position-relative">
+                      <label className="form-label fw-medium text-dark mb-2">Search for PCN</label>
+                      <div className="input-group input-group-lg">
+                        <span className="input-group-text bg-light border-end-0">
+                          <i className="ti ti-search text-primary" />
+                        </span>
+                        <input
+                          type="text"
+                          className="form-control border-start-0 ps-2"
+                          value={pcnSearchQuery}
+                          onChange={(e) => setPcnSearchQuery(e.target.value)}
+                          onFocus={() => { hideAllSuggestions(); setShowPcnSuggestions(true); }}
+                          placeholder="e.g., MEDICAL"
+                          style={{ height: "52px" }}
+                        />
+                      </div>
+                      {showPcnSuggestions && filteredPcnList.length > 0 && (
+                        <div
+                          className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                          style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
+                          role="listbox"
+                        >
+                          {filteredPcnList.map(p => (
+                            <button
+                              key={p.id}
+                              className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                              onClick={() => onSelectPcn(p)}
+                            >
+                              {p.pcn}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rx Group */}
+                  {rxGroups.length > 0 && (
+                    <div className="col-md-6 position-relative">
+                      <label className="form-label fw-medium text-dark mb-2">Search for Rx Group</label>
+                      <div className="input-group input-group-lg">
+                        <span className="input-group-text bg-light border-end-0">
+                          <i className="ti ti-search text-primary" />
+                        </span>
+                        <input
+                          type="text"
+                          className="form-control border-start-0 ps-2"
+                          value={rxGroupSearchQuery}
+                          onChange={(e) => setRxGroupSearchQuery(e.target.value)}
+                          onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }}
+                          placeholder="e.g., Medi-Cal"
+                          style={{ height: "52px" }}
+                        />
+                      </div>
+                      {showRxGroupSuggestions && filteredRxGroupList.length > 0 && (
+                        <div
+                          className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                          style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
+                          role="listbox"
+                        >
+                          {filteredRxGroupList.map(rx => (
+                            <button
+                              key={rx.id}
+                              className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                              onClick={() => onSelectRxGroup(rx)}
+                            >
+                              {rx.rxGroup}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* PCN */}
-              {pncOr(selectedBin) && (
-                <div className="mb-4 position-relative">
-                  <label className="form-label">Search for PCN</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={pcnSearchQuery}
-                    onChange={(e) => setPcnSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowPcnSuggestions(true); }}
-                    placeholder="e.g., MEDICAL"
-                  />
-                  {showPcnSuggestions && filteredPcnList.length > 0 && (
-                    <div
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
-                      style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
-                      role="listbox"
-                    >
-                      {filteredPcnList.map(p => (
-                        <button
-                          key={p.id}
-                          className="list-group-item list-group-item-action border-0 text-start"
-                          onClick={() => onSelectPcn(p)}
-                        >
-                          {p.pcn}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Rx Group */}
-              {rxGroups.length > 0 && (
-                <div className="mb-4 position-relative">
-                  <label className="form-label">Search for Rx Group</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={rxGroupSearchQuery}
-                    onChange={(e) => setRxGroupSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }}
-                    placeholder="e.g., Medi-Cal"
-                  />
-                  {showRxGroupSuggestions && filteredRxGroupList.length > 0 && (
-                    <div
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
-                      style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
-                      role="listbox"
-                    >
-                      {filteredRxGroupList.map(rx => (
-                        <button
-                          key={rx.id}
-                          className="list-group-item list-group-item-action border-0 text-start"
-                          onClick={() => onSelectRxGroup(rx)}
-                        >
-                          {rx.rxGroup}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Drug Class (infinite) */}
+              {/* Drug Class Section */}
               {!!selectedRxGroup && (
-                <div className="mb-4 position-relative">
-                  <label className="form-label">Search for Drug Class</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={drugSearchQuery}
-                    onChange={(e) => setDrugSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowDrugSuggestions(true); }}
-                    placeholder="e.g., Statins"
-                  />
-                  {showDrugSuggestions && drugSearchQuery && (
-                    <div
-                      ref={listRef}
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
-                      style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
-                      role="listbox"
-                    >
-                      {pagedClassInfos.map(ci => (
-                        <button
-                          key={ci.id}
-                          className="list-group-item list-group-item-action border-0 text-start"
-                          onClick={() => onSelectClass(ci)}
-                        >
-                          {ci.className}
-                          <span className="text-muted small ms-2">{ci.classType}</span>
-                        </button>
-                      ))}
-                      {pagedClassInfos.length < filteredClassInfos.length && (
-                        <div className="text-center small text-muted py-2 border-top">Loading more…</div>
-                      )}
-                      {pagedClassInfos.length === 0 && (
-                        <div className="text-center small text-muted py-2">No classes found</div>
-                      )}
+                <div className="mb-4">
+                  <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2">
+                    <i className="ti ti-pill me-2"></i>
+                    Drug Class Information
+                  </h6>
+                  
+                  <div className="position-relative">
+                    <label className="form-label fw-medium text-dark mb-2">Search for Drug Class</label>
+                    <div className="input-group input-group-lg">
+                      <span className="input-group-text bg-light border-end-0">
+                        <i className="ti ti-search text-primary" />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control border-start-0 ps-2"
+                        value={drugSearchQuery}
+                        onChange={(e) => setDrugSearchQuery(e.target.value)}
+                        onFocus={() => { hideAllSuggestions(); setShowDrugSuggestions(true); }}
+                        placeholder="e.g., Statins"
+                        style={{ height: "52px" }}
+                      />
                     </div>
-                  )}
+                    {showDrugSuggestions && drugSearchQuery && (
+                      <div
+                        ref={listRef}
+                        className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                        style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
+                        role="listbox"
+                      >
+                        {pagedClassInfos.map(ci => (
+                          <button
+                            key={ci.id}
+                            className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                            onClick={() => onSelectClass(ci)}
+                          >
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span>{ci.className}</span>
+                              <span className="text-muted small">{ci.classType}</span>
+                            </div>
+                          </button>
+                        ))}
+                        {pagedClassInfos.length < filteredClassInfos.length && (
+                          <div className="text-center small text-muted py-3 border-top">
+                            <i className="ti ti-loader me-1"></i>
+                            Loading more…
+                          </div>
+                        )}
+                        {pagedClassInfos.length === 0 && (
+                          <div className="text-center small text-muted py-3">No classes found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* NDC (read-only display or choose if multiple) */}
+              {/* NDC Section */}
               {ndcList.length > 0 && (
-                <div className="mb-3">
-                  <label className="form-label">NDC</label>
-                  {ndcList.length === 1 ? (
-                    <input className="form-control" value={selectedNdc} readOnly />
-                  ) : (
-                    <select
-                      className="form-select"
-                      value={selectedNdc}
-                      onChange={(e) => setSelectedNdc(e.target.value)}
-                    >
-                      {ndcList.map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  )}
+                <div className="mb-4">
+                  <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2">
+                    <i className="ti ti-barcode me-2"></i>
+                    NDC Information
+                  </h6>
+                  
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium text-dark mb-2">NDC</label>
+                      {ndcList.length === 1 ? (
+                        <input className="form-control form-control-lg" value={selectedNdc} readOnly />
+                      ) : (
+                        <select
+                          className="form-select form-select-lg"
+                          value={selectedNdc}
+                          onChange={(e) => setSelectedNdc(e.target.value)}
+                        >
+                          {ndcList.map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      )}
+                    </div>
+                    
+                    {/* Drug Details Preview */}
+                    {selectedDrug && (
+                      <div className="col-md-6">
+                        <label className="form-label fw-medium text-dark mb-2">Drug Details</label>
+                        <div className="bg-light rounded-3 p-3">
+                          <div className="fw-semibold">{selectedDrug.name}</div>
+                          <div className="small text-muted">{selectedDrug.className}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* Preview */}
               {selectedDrug && selectedNdc && (
-                <div className="alert alert-secondary">
-                  <div className="row g-2">
-                    <div className="col-6"><span className="text-muted">Drug:</span> <strong>{selectedDrug.name}</strong></div>
-                    <div className="col-6"><span className="text-muted">NDC:</span> <strong>{selectedNdc}</strong></div>
-                    <div className="col-12"><span className="text-muted">Class:</span> <strong>{selectedDrug.className}</strong></div>
-                    <div className="col-6"><span className="text-muted">ACQ:</span> ${selectedDrug.acq}</div>
-                    <div className="col-6"><span className="text-muted">AWP:</span> ${selectedDrug.awp}</div>
-                    <div className="col-6"><span className="text-muted">Route:</span> {selectedDrug.route}</div>
-                    <div className="col-6"><span className="text-muted">TE Code:</span> {selectedDrug.teCode}</div>
-                    <div className="col-12"><span className="text-muted">Net (mock):</span> <strong>${mockNet(selectedNdc, selectedRxGroup?.id)}</strong></div>
+                <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
+                  <div className="bg-white p-3 rounded-3">
+                    <i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" />
                   </div>
-                  <div className="small text-muted mt-2">All values are mock data until the API is connected.</div>
+                  <div>
+                    <div className="fw-semibold">Estimated Net Price</div>
+                    <div className="fs-5 fw-bold">{details?.net != null ? `$${details.net}` : "N/A"}</div>
+                  </div>
                 </div>
               )}
 
               {/* Action */}
               {selectedDrug && selectedNdc && (
                 <button
-                  className="btn btn-primary w-100"
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
                   onClick={() => {
                     // mimic your original navigate pattern
                     navigate(`/drug/${selectedDrug.id}?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedRxGroup?.id ?? ""}`);
                   }}
                 >
-                  View Drug Details <i className="ti ti-external-link ms-1" />
+                  <i className="ti ti-file-text me-2"></i>
+                  View Drug Details
                 </button>
               )}
             </div>

@@ -14,9 +14,6 @@ import ChartTwo from "../dashboard/chart/chart2";
 import ChartThree from "../dashboard/chart/chart3";
 import ChartFour from "../dashboard/chart/chart4";
 import ChartFive from "../dashboard/chart/chart5";
-import PatientsVisitsChart from "../dashboard/chart/patientsVisitsChart";
-import SemiDonutChartApex from "../dashboard/chart/semiDonutChart";
-
 // الداشبوردات بتاعة الصيدلية (بتاعتك)
 import FirstDashboard from "./Dashboard";
 import SecondDashBoard from "./SecondDashboard";

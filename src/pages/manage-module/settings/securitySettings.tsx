@@ -75,7 +75,7 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
-                {/* Items */}
+                {/*
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3 border-bottom mb-4 pb-4">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -111,7 +111,6 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
-                {/* Items */}
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3 border-bottom mb-4 pb-4">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -135,7 +134,6 @@ const SecuritySettings = () => {
                     </label>
                   </div>
                 </div>
-                {/* Items */}
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3 border-bottom mb-4 pb-4">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -168,7 +166,6 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
-                {/* Items */}
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3 border-bottom mb-4 pb-4">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -201,7 +198,6 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
-                {/* Items */}
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3 border-bottom mb-4 pb-4">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -235,7 +231,6 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
-                {/* Items */}
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3 border-bottom mb-4 pb-4">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -262,7 +257,6 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
-                {/* Items */}
                 <div className="d-flex align-items-center justify-content-between flex-wrap row-gap-3">
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     <span className="avatar avatar-lg border bg-light">
@@ -286,6 +280,7 @@ const SecuritySettings = () => {
                     </Link>
                   </div>
                 </div>
+                */}
               </div>
             </div>
           </form>

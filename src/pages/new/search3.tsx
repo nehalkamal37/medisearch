@@ -67,7 +67,7 @@ function makeDrug(id: number, name: string): DrugModel {
   };
 }
 
-// “Database” of drugs to search/paginate
+// "Database" of drugs to search/paginate
 const ALL_DRUGS_DB: DrugModel[] = Array.from({ length: 140 }).map((_, i) =>
   makeDrug(i + 1, DRUG_NAMES[i % DRUG_NAMES.length])
 );
@@ -144,7 +144,7 @@ const Search3: React.FC = () => {
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  // Compute drug suggestions (mock “coverage” when limitSearch is ON)
+  // Compute drug suggestions (mock "coverage" when limitSearch is ON)
   const recomputeDrugSuggestions = (page = 1) => {
     const q = drugSearchQuery.toLowerCase();
     let pool = ALL_DRUGS_DB.filter(d => d.name.toLowerCase().includes(q));
@@ -243,35 +243,35 @@ const Search3: React.FC = () => {
   };
 
   return (
-   
-  <div className="container py-4">
-  <PageMeta
-    title="Rx Group → Drug → NDC Search"
-    description="Search by Rx Group, then pick a drug and NDC — all mock data until the API is connected."
-    canonical={window.location.origin + "/search3"}
-  />
+    <div className="container py-4">
+      <PageMeta
+        title="Rx Group → Drug → NDC Search"
+        description="Search by Rx Group, then pick a drug and NDC — all mock data until the API is connected."
+        canonical={window.location.origin + "/search3"}
+      />
 
-  {/* Centered breadcrumb block */}
-  <div className="d-flex flex-column align-items-center text-center mb-4">
-    <AutoBreadcrumb title="RxGroup, Drugs & NDC" />
-  </div>
+      <div className="d-flex flex-column align-items-center text-center mb-4">
+        <AutoBreadcrumb title="RxGroup, Drugs & NDC" />
+      </div>
 
-  <div className="row g-4 justify-content-center right-0">
-    <div className="col-12 col-lg-8">
-      <div className="card shadow-sm">
-        <div className="card-body">
-        
-
-              <div className="text-center mb-3">
-                <h5 className="mb-1">RxGroup, Drugs & NDC</h5>
-                <div className="text-muted">
-                  Search by Rx Group, then select a drug and NDC — all mock data until we connect the API.
-                </div>
-              </div>
-
+      <div className="row justify-content-center">
+        <div className="col-12 col-lg-10 col-xl-8">
+          <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+            <div className="card-header bg- text-white py-4 px-5">
+              <h4 className="mb-0 fw-semibold">
+                <i className="ti ti-users me-2"></i>
+                RxGroup, Drugs & NDC Search
+              </h4>
+              <p className="mb-0 opacity-75 mt-2">
+                Search by Rx Group, then select a drug and NDC — all mock data until we connect the API.
+              </p>
+            </div>
+            
+            <div className="card-body p-5">
               {/* Toggle limit search */}
-              <div className="d-flex align-items-center justify-content-between border-top pt-3 pb-2 mb-3">
-                <label htmlFor="limitSearch" className="form-label m-0">
+              <div className="d-flex align-items-center justify-content-between bg-light rounded-3 p-3 mb-4">
+                <label htmlFor="limitSearch" className="form-label m-0 fw-medium">
+                  <i className="ti ti-filter me-1"></i>
                   Limit search to selected Rx Group
                 </label>
                 <div className="form-check form-switch m-0">
@@ -281,140 +281,192 @@ const Search3: React.FC = () => {
                     type="checkbox"
                     checked={limitSearch}
                     onChange={() => { clearAll(); setLimitSearch(!limitSearch); }}
+                    style={{ width: "2.5em" }}
                   />
                 </div>
               </div>
 
-              {/* Rx Group combobox */}
-              <div className="mb-4 position-relative js-suggest">
-                <label className="form-label">Search for Rx Group</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="ti ti-search" /></span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Type Rx Group…"
-                    value={rxGroupSearchQuery}
-                    onChange={e => setRxGroupSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }}
-                    aria-autocomplete="list"
-                    aria-controls="rxgroup-listbox"
-                  />
-                  {rxGroupSearchQuery && (
-                    <button className="btn btn-outline-secondary" onClick={clearAll} aria-label="Clear">
-                      <i className="ti ti-x" />
-                    </button>
-                  )}
-                </div>
-
-                {showRxGroupSuggestions && filteredRxGroups.length > 0 && (
-                  <ul
-                    id="rxgroup-listbox"
-                    role="listbox"
-                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
-                    style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
-                  >
-                    {filteredRxGroups.map(rg => (
-                      <li
-                        key={rg.id}
-                        role="option"
-                        tabIndex={0}
-                        onClick={() => onSelectRxGroup(rg)}
-                        onKeyDown={(e) => e.key === "Enter" && onSelectRxGroup(rg)}
-                        className="list-group-item list-group-item-action border-0"
+              {/* Rx Group Section */}
+              <div className="mb-4">
+                <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2">
+                  <i className="ti ti-id-badge me-2"></i>
+                  Rx Group Information
+                </h6>
+                
+                <div className="position-relative js-suggest">
+                  <label className="form-label fw-medium text-dark mb-2">Search for Rx Group</label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0">
+                      <i className="ti ti-search text-primary" />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      placeholder="Type Rx Group…"
+                      value={rxGroupSearchQuery}
+                      onChange={e => setRxGroupSearchQuery(e.target.value)}
+                      onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }}
+                      aria-autocomplete="list"
+                      aria-controls="rxgroup-listbox"
+                      style={{ height: "52px" }}
+                    />
+                    {rxGroupSearchQuery && (
+                      <button 
+                        className="btn btn-outline-secondary d-flex align-items-center" 
+                        onClick={clearAll}
+                        aria-label="Clear"
+                        style={{ height: "52px" }}
                       >
-                        {rg.rxGroup}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                        <i className="ti ti-x" />
+                      </button>
+                    )}
+                  </div>
 
-              {/* Drug combobox */}
-              {!!selectedRxGroup && (
-                <div className="mb-4 position-relative js-suggest">
-                  <label className="form-label">Search for Drug</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Type drug name…"
-                    value={drugSearchQuery}
-                    onChange={e => setDrugSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowDrugSuggestions(true); }}
-                    aria-autocomplete="list"
-                    aria-controls="drug-listbox"
-                  />
-                  {showDrugSuggestions && drugSearchQuery.length > 0 && suggestedDrugs.length > 0 && (
+                  {showRxGroupSuggestions && filteredRxGroups.length > 0 && (
                     <ul
-                      id="drug-listbox"
-                      ref={dropdownRef}
+                      id="rxgroup-listbox"
                       role="listbox"
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
-                      style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
-                    >
-                      {suggestedDrugs.map(d => (
-                        <li
-                          key={d.id}
-                          role="option"
-                          tabIndex={0}
-                          onClick={() => onSelectDrug(d)}
-                          onKeyDown={(e) => e.key === "Enter" && onSelectDrug(d)}
-                          className="list-group-item list-group-item-action border-0"
-                        >
-                          {d.name}
-                        </li>
-                      ))}
-                      {suggestedDrugs.length >= PAGE_SIZE * currentPage && (
-                        <li className="text-center small text-muted py-2 border-top">Loading more…</li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              )}
-
-              {/* NDC combobox */}
-              {ndcList.length > 0 && (
-                <div className="mb-3 position-relative js-suggest">
-                  <label className="form-label">Search for NDC</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Type to filter NDCs…"
-                    value={ndcSearchQuery}
-                    onChange={e => setNdcSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowNdcSuggestions(true); }}
-                    aria-autocomplete="list"
-                    aria-controls="ndc-listbox"
-                  />
-                  {showNdcSuggestions && filteredNdcList.length > 0 && (
-                    <ul
-                      id="ndc-listbox"
-                      role="listbox"
-                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                      className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                       style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
                     >
-                      {filteredNdcList.map((ndc, i) => (
+                      {filteredRxGroups.map(rg => (
                         <li
-                          key={`${ndc}-${i}`}
+                          key={rg.id}
                           role="option"
                           tabIndex={0}
-                          onClick={() => onSelectNdc(ndc)}
-                          onKeyDown={(e) => e.key === "Enter" && onSelectNdc(ndc)}
-                          className="list-group-item list-group-item-action border-0"
+                          onClick={() => onSelectRxGroup(rg)}
+                          onKeyDown={(e) => e.key === "Enter" && onSelectRxGroup(rg)}
+                          className="list-group-item list-group-item-action border-0 py-3 px-4"
                         >
-                          {ndc}
+                          {rg.rxGroup}
                         </li>
                       ))}
                     </ul>
                   )}
+                </div>
+              </div>
+
+              {/* Drug and NDC Section */}
+              {!!selectedRxGroup && (
+                <div className="mb-4">
+                  <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2">
+                    <i className="ti ti-pill me-2"></i>
+                    Drug Information
+                  </h6>
+                  
+                  <div className="row g-3">
+                    {/* Drug combobox */}
+                    <div className="col-md-6 position-relative js-suggest">
+                      <label className="form-label fw-medium text-dark mb-2">Search for Drug</label>
+                      <div className="input-group input-group-lg">
+                        <span className="input-group-text bg-light border-end-0">
+                          <i className="ti ti-search text-primary" />
+                        </span>
+                        <input
+                          type="text"
+                          className="form-control border-start-0 ps-2"
+                          placeholder="Type drug name…"
+                          value={drugSearchQuery}
+                          onChange={e => setDrugSearchQuery(e.target.value)}
+                          onFocus={() => { hideAllSuggestions(); setShowDrugSuggestions(true); }}
+                          aria-autocomplete="list"
+                          aria-controls="drug-listbox"
+                          style={{ height: "52px" }}
+                        />
+                      </div>
+                      {showDrugSuggestions && drugSearchQuery.length > 0 && suggestedDrugs.length > 0 && (
+                        <ul
+                          id="drug-listbox"
+                          ref={dropdownRef}
+                          role="listbox"
+                          className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                          style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
+                        >
+                          {suggestedDrugs.map(d => (
+                            <li
+                              key={d.id}
+                              role="option"
+                              tabIndex={0}
+                              onClick={() => onSelectDrug(d)}
+                              onKeyDown={(e) => e.key === "Enter" && onSelectDrug(d)}
+                              className="list-group-item list-group-item-action border-0 py-3 px-4"
+                            >
+                              <div className="d-flex align-items-center">
+                                <i className="ti ti-pill text-primary me-2"></i>
+                                {d.name}
+                              </div>
+                            </li>
+                          ))}
+                          {suggestedDrugs.length >= PAGE_SIZE * currentPage && (
+                            <li className="text-center small text-muted py-3 border-top">
+                              <i className="ti ti-loader me-1"></i>
+                              Loading more…
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* NDC combobox */}
+                    {ndcList.length > 0 && (
+                      <div className="col-md-6 position-relative js-suggest">
+                        <label className="form-label fw-medium text-dark mb-2">Search for NDC</label>
+                        <div className="input-group input-group-lg">
+                          <span className="input-group-text bg-light border-end-0">
+                            <i className="ti ti-search text-primary" />
+                          </span>
+                          <input
+                            type="text"
+                            className="form-control border-start-0 ps-2"
+                            placeholder="Type to filter NDCs…"
+                            value={ndcSearchQuery}
+                            onChange={e => setNdcSearchQuery(e.target.value)}
+                            onFocus={() => { hideAllSuggestions(); setShowNdcSuggestions(true); }}
+                            aria-autocomplete="list"
+                            aria-controls="ndc-listbox"
+                            style={{ height: "52px" }}
+                          />
+                        </div>
+                        {showNdcSuggestions && filteredNdcList.length > 0 && (
+                          <ul
+                            id="ndc-listbox"
+                            role="listbox"
+                            className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                            style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
+                          >
+                            {filteredNdcList.map((ndc, i) => (
+                              <li
+                                key={`${ndc}-${i}`}
+                                role="option"
+                                tabIndex={0}
+                                onClick={() => onSelectNdc(ndc)}
+                                onKeyDown={(e) => e.key === "Enter" && onSelectNdc(ndc)}
+                                className="list-group-item list-group-item-action border-0 py-3 px-4"
+                              >
+                                <div className="d-flex align-items-center">
+                                  <i className="ti ti-barcode text-primary me-2"></i>
+                                  {ndc}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* Preview (mock) */}
               {details && (
-                <div className="alert alert-secondary">
-                  <div className="fw-semibold mb-1">Net Price</div>
-                  <div>{details.net != null ? `$${details.net}` : "N/A"}</div>
+                <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
+                  <div className="bg-white p-3 rounded-3">
+                    <i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <div className="fw-semibold">Estimated Net Price</div>
+                    <div className="fs-5 fw-bold">{details.net != null ? `$${details.net}` : "N/A"}</div>
+                  </div>
                 </div>
               )}
 
@@ -422,11 +474,12 @@ const Search3: React.FC = () => {
               {selectedDrug && selectedNdc && (
                 <button
                   type="button"
-                  className="btn btn-primary w-100"
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
                   data-bs-toggle="modal"
                   data-bs-target="#search3DetailsModal"
                 >
-                  View Drug Details <i className="ti ti-external-link ms-1" />
+                  <i className="ti ti-file-text me-2"></i>
+                  View Drug Details
                 </button>
               )}
             </div>
@@ -437,18 +490,40 @@ const Search3: React.FC = () => {
       {/* Details Modal (mock) */}
       <div className="modal fade" id="search3DetailsModal" tabIndex={-1} aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h6 className="modal-title">Drug Details (Mock)</h6>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close" />
+          <div className="modal-content border-0 shadow-lg">
+            <div className="modal-header bg-primary text-white">
+              <h6 className="modal-title">
+                <i className="ti ti-info-circle me-2"></i>
+                Drug Details (Mock)
+              </h6>
+              <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" />
             </div>
             <div className="modal-body">
-              <div className="mb-2"><span className="text-muted">Rx Group:</span> <strong>{selectedRxGroup?.rxGroup ?? "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Drug:</span> <strong>{selectedDrug?.name ?? "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">NDC:</span> <strong>{selectedNdc || "-"}</strong></div>
-              <div className="mb-2"><span className="text-muted">Net:</span> <strong>{details?.net != null ? `$${details.net}` : "-"}</strong></div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">Rx Group:</div>
+                  <div className="fw-semibold">{selectedRxGroup?.rxGroup ?? "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">Drug:</div>
+                  <div className="fw-semibold">{selectedDrug?.name ?? "-"}</div>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-6">
+                  <div className="text-muted small">NDC:</div>
+                  <div className="fw-semibold">{selectedNdc || "-"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="text-muted small">Net Price:</div>
+                  <div className="fw-semibold">{details?.net != null ? `$${details.net}` : "-"}</div>
+                </div>
+              </div>
               <hr />
-              <div className="small text-muted">All values are mock data until the API is connected.</div>
+              <div className="small text-muted">
+                <i className="ti ti-info-circle me-1"></i>
+                All values are mock data until the API is connected.
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn btn-light" data-bs-dismiss="modal">Close</button>

@@ -16,10 +16,6 @@ interface Props {
   totalRows?: number;
 }
 
-const money = (n?: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    n ?? 0
-  );
 const d3 = (n?: number) => (n ?? 0).toFixed(3);
 const d2 = (n?: number) => (n ?? 0).toFixed(2);
 const dt = (d: any) =>

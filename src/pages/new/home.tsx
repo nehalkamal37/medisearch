@@ -160,7 +160,7 @@ const LandingPage: React.FC = () => {
               </li>
             </ul>
             <div className="d-flex ms-lg-3">
-              <Button variant="outline-primary" className="me-2">Sign In</Button>
+             <a href='/login'>   <Button variant="outline-primary" className="me-2">Sign In</Button></a>
              <a href='/search1'> <Button variant="primary">Dashboard</Button> </a>
             </div>
           </div>

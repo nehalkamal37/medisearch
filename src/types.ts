@@ -170,6 +170,14 @@ export interface Bin {
   helpDeskNumber: string;
 }
 export interface DrugTransaction {
+   totalNetProfit:number;
+   totalHighestNet:number;
+   difference:number;
+
+  differencePerItem?: number;   // ← add this line
+  insuranceId?: string | number; // if it’s not already present
+  /** Allow legacy/mock name for now so mocks compile */
+  insurance?: string;
   date: string;
   scriptCode: string;
   rxNumber: string;
@@ -177,7 +185,7 @@ export interface DrugTransaction {
   prescriber: string;
   drugName: string;
   drugId: number;
-  insuranceId: number;
+  //insuranceId: number;
   insurancePayment: number;
   patientPayment: number;
   acquisitionCost: number;
@@ -323,6 +331,7 @@ export interface OrderReadDto {
   additionalCost: number;
   orderItemReadDtos: OrderItemReadDto[];
 }
+/*
 interface Question {
   questionId: string;
   questionText: string;
@@ -331,7 +340,7 @@ interface Question {
   selectedAnswers: string[];
   textAnswer: string;
 }
-
+/*
 interface Section {
   sectionTitle: string;
   questions: Question[];
@@ -341,3 +350,4 @@ interface FeedbackFormData {
   formTitle: string;
   sections: Section[];
 }
+  */

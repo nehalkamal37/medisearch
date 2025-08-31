@@ -57,6 +57,82 @@ function KpiCard({
   );
 }
 /* ============================================================= */
+type RawDrugTxn = Partial<DrugTransaction> & {
+  DifferencePerItem?: number;  // legacy key allowed in raw data
+  insurance?: string;          // legacy string you used in some rows
+};
+
+const RAW_THIRD_DASHBOARD: RawDrugTxn[] = [
+  // …your existing objects, keep DifferencePerItem and insurance as-is…
+];
+
+const MOCK_THIRD_DASHBOARD: DrugTransaction[] = RAW_THIRD_DASHBOARD.map((r) => ({
+  // copy only the fields you actually use (keeps types tight)
+  date: r.date!,
+  scriptCode: r.scriptCode!,
+  rxNumber: r.rxNumber!,
+  user: r.user!,
+  drugName: r.drugName!,
+  pf: r.pf!,
+  prescriber: r.prescriber!,
+  quantity: r.quantity ?? 0,
+  acquisitionCost: r.acquisitionCost ?? 0,
+  discount: r.discount ?? 0,
+  insurancePayment: r.insurancePayment ?? 0,
+  patientPayment: r.patientPayment ?? 0,
+  ndcCode: r.ndcCode!,
+  netProfit: r.netProfit ?? 0,
+  drugClass: r.drugClass!,
+  branchCode: r.branchCode!,
+  insuranceRx: r.insuranceRx!,
+  rxGroupId: r.rxGroupId!,
+  binId: r.binId!,
+  binName: r.binName!,
+  binCode: r.binCode!,
+  pcnId: r.pcnId!,
+  pcnName: r.pcnName!,
+  drugId: r.drugId!,
+  // insuranceId: r.insuranceId ?? (r.insurance as any) ?? "",
+
+  netProfitPerItem: r.netProfitPerItem ?? 0,
+  highestNetProfitPerItem: r.highestNetProfitPerItem ?? 0,
+  totalNetProfit: r.totalNetProfit ?? r.netProfit ?? 0,
+  totalHighestNet: r.totalHighestNet ?? r.highestNet ?? 0,
+  difference: r.difference ?? ((r.highestNet ?? 0) - (r.netProfit ?? 0)),
+  // canonical camelCase for table key and sorting
+/*  differencePerItem:
+    r.differencePerItem ??
+    r.DifferencePerItem ??
+    ((r.highestNetProfitPerItem ?? 0) - (r.netProfitPerItem ?? 0)),
+*/
+  highestNet: r.highestNet ?? 0,
+  highestDrugNDC: r.highestDrugNDC!,
+  highestDrugName: r.highestDrugName!,
+  highestDrugId: r.highestDrugId!,
+  highestScriptCode: r.highestScriptCode!,
+  highestQuantity: r.highestQuantity ?? 0,
+  highestRxGroupId: r.highestRxGroupId!,
+  highestInsuranceRx: r.highestInsuranceRx!,
+  highestBinId: r.highestBinId!,
+  highestBINName: r.highestBINName!,
+  highestBINCode: r.highestBINCode!,
+  highestPcnId: r.highestPcnId!,
+  highestPCNName: r.highestPCNName!,
+  highestScriptDate: r.highestScriptDate!,
+
+  
+  // ensure insuranceId and differencePerItem are populated:
+  insuranceId: r.insuranceId ?? (r.insurance as any) ?? "",
+  differencePerItem:
+    r.differencePerItem ??
+    (r as any).DifferencePerItem ??
+    ((r.highestNetProfitPerItem ?? 0) - (r.netProfitPerItem ?? 0)),
+
+  // ✅ add the missing required fields with safe defaults:
+  remainingStock: r.remainingStock ?? 0,
+  highestRemainingStock: r.highestRemainingStock ?? 0,
+
+}));
 
 /* ----------------------------- helpers ----------------------------- */
 const toSafeDate = (d: any) => {
@@ -80,152 +156,6 @@ const monthLabel = (ym: string) => {
 };
 
 /* ------------------------------ mocks ------------------------------ */
-const MOCK_THIRD_DASHBOARD: DrugTransaction[] = [
-  {
-    date: new Date().toISOString(),
-    scriptCode: "SC1001",
-    rxNumber: "RX-77881",
-    user: "sara",
-    drugName: "Atorvastatin 20mg",
-    insurance: "Aetna",
-    pf: "X",
-    prescriber: "JOHN DOE, MD",
-    quantity: 30,
-    acquisitionCost: 7.25,
-    discount: 0,
-    insurancePayment: 35.75,
-    patientPayment: 15.0,
-    ndcCode: "00093-7424-56",
-    netProfit: 36.0,
-    drugClass: "Statins",
-    branchCode: "BR-1",
-    insuranceRx: "AL",
-    rxGroupId: 1,
-    binId: 10,
-    binName: "Aetna BIN",
-    binCode: "123456",
-    pcnId: 20,
-    pcnName: "AET",
-    drugId: 101,
-    insuranceId: 999,
-    netProfitPerItem: 1.2,
-    highestNetProfitPerItem: 2.1,
-    totalNetProfit: 36.0,
-    totalHighestNet: 56.0,
-    difference: 20.0,
-    DifferencePerItem: 0.9,
-    highestNet: 56.0,
-    highestDrugNDC: "00093-7424-58",
-    highestDrugName: "Atorvastatin 20mg (Alt)",
-    highestDrugId: 102,
-    highestScriptCode: "SC9001",
-    highestQuantity: 30,
-    highestRxGroupId: 2,
-    highestInsuranceRx: "BF",
-    highestBinId: 11,
-    highestBINName: "Caremark BIN",
-    highestBINCode: "654321",
-    highestPcnId: 21,
-    highestPCNName: "CRK",
-    highestScriptDate: new Date().toISOString(),
-  },
-  {
-    date: new Date(Date.now() - 86400000 * 3).toISOString(),
-    scriptCode: "SC1002",
-    rxNumber: "RX-77882",
-    user: "khaled",
-    drugName: "Metformin 500mg",
-    insurance: "Caremark",
-    pf: "X",
-    prescriber: "JANE SMITH, DO",
-    quantity: 60,
-    acquisitionCost: 4.8,
-    discount: 0,
-    insurancePayment: 22.2,
-    patientPayment: 8.0,
-    ndcCode: "54868-1234-00",
-    netProfit: 18.4,
-    drugClass: "Antidiabetic",
-    branchCode: "BR-2",
-    insuranceRx: "BF",
-    rxGroupId: 3,
-    binId: 12,
-    binName: "Caremark BIN",
-    binCode: "777777",
-    pcnId: 22,
-    pcnName: "CVS",
-    drugId: 201,
-    insuranceId: 888,
-    netProfitPerItem: 0.31,
-    highestNetProfitPerItem: 0.65,
-    totalNetProfit: 18.4,
-    totalHighestNet: 39.0,
-    difference: 20.6,
-    DifferencePerItem: 0.34,
-    highestNet: 39.0,
-    highestDrugNDC: "54868-9999-00",
-    highestDrugName: "Metformin 500mg (Alt)",
-    highestDrugId: 202,
-    highestScriptCode: "SC9002",
-    highestQuantity: 60,
-    highestRxGroupId: 4,
-    highestInsuranceRx: "AL",
-    highestBinId: 13,
-    highestBINName: "Aetna BIN",
-    highestBINCode: "246810",
-    highestPcnId: 23,
-    highestPCNName: "AET",
-    highestScriptDate: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    date: new Date(Date.now() - 86400000 * 9).toISOString(),
-    scriptCode: "SC1003",
-    rxNumber: "RX-77883",
-    user: "lina",
-    drugName: "Lisinopril 10mg",
-    insurance: "OptumRx",
-    pf: "X",
-    prescriber: "SAM WILSON, MD",
-    quantity: 90,
-    acquisitionCost: 6.1,
-    discount: 0,
-    insurancePayment: 40.2,
-    patientPayment: 9.5,
-    ndcCode: "16729-0010-17",
-    netProfit: 30.5,
-    drugClass: "ACE inhibitors",
-    branchCode: "BR-1",
-    insuranceRx: "AH",
-    rxGroupId: 5,
-    binId: 14,
-    binName: "Optum BIN",
-    binCode: "999999",
-    pcnId: 24,
-    pcnName: "OPT",
-    drugId: 301,
-    insuranceId: 777,
-    netProfitPerItem: 0.34,
-    highestNetProfitPerItem: 0.58,
-    totalNetProfit: 30.5,
-    totalHighestNet: 52.2,
-    difference: 21.7,
-    DifferencePerItem: 0.24,
-    highestNet: 52.2,
-    highestDrugNDC: "16729-0010-99",
-    highestDrugName: "Lisinopril 10mg (Alt)",
-    highestDrugId: 302,
-    highestScriptCode: "SC9003",
-    highestQuantity: 90,
-    highestRxGroupId: 6,
-    highestInsuranceRx: "AI",
-    highestBinId: 15,
-    highestBINName: "UHC BIN",
-    highestBINCode: "135791",
-    highestPcnId: 25,
-    highestPCNName: "UHC",
-    highestScriptDate: new Date(Date.now() - 86400000 * 9).toISOString(),
-  },
-];
 
 /* ----------------------------- component --------------------------- */
 const insurance_mapping: Record<string, string> = {
@@ -287,8 +217,8 @@ const ThirdDashBoard: React.FC<{ data?: DrugTransaction[] }> = ({ data }) => {
   // KPIs
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalNet, setTotalNet] = useState(0);
-  const [ setBelowNetPriceCount] = useState(0);
-
+  const [belowNetPriceCount, setBelowNetPriceCount] = useState(0);
+void belowNetPriceCount;
   const rowsPerPage = 10;
 
   // Keep only mismatching NDC
@@ -701,7 +631,7 @@ const ThirdDashBoard: React.FC<{ data?: DrugTransaction[] }> = ({ data }) => {
 
                           <td className="text-nowrap">
                             <a
-                              href={`/drug/${item.highestDrugId}?ndc=${item.highestDrugNDC}&insuranceId=${item.insuranceId}`}
+       href={`/drug/${item.highestDrugId}?ndc=${item.highestDrugNDC}&insuranceId=${item.insuranceId}`}
                               target="_blank"
                               rel="noreferrer"
                               className="link-primary fw-semibold"

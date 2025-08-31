@@ -1,5 +1,3 @@
-// Create this new file or add to your main layout
-// filepath: d:\Dreams Projects\dleohr\react\src\feature-module\routes\DynamicTitle.tsx
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { publicRoutes, authRoutes } from "./router.link";
@@ -7,8 +5,9 @@ import { publicRoutes, authRoutes } from "./router.link";
 type RouteWithMeta = {
   path: string;
   element: React.ReactElement;
-  route: (_props: any) => React.ReactElement | null;
+  route?: (_props: any) => React.ReactElement | null; // made optional
   meta_title?: string;
+  id?: string;
 };
 
 const allRoutes: RouteWithMeta[] = [...publicRoutes, ...authRoutes];
@@ -17,23 +16,24 @@ export default function DynamicTitle() {
   const location = useLocation();
 
   useEffect(() => {
-  const currentRoute = allRoutes.find(
-    (route) => route.path === location.pathname
-  );
+    const currentRoute = allRoutes.find(
+      (route) => route.path === location.pathname
+    );
 
-  const baseTitle = "Dreams EMR - Responsive Bootstrap 5 Medical Admin Template";
+    const baseTitle =
+      "Dreams EMR - Responsive Bootstrap 5 Medical Admin Template";
 
-  if (currentRoute && currentRoute.meta_title) {
-    // Check if meta_title already includes "Dreams Estate"
-    if (currentRoute.meta_title.includes(baseTitle)) {
-      document.title = currentRoute.meta_title;
+    if (currentRoute && currentRoute.meta_title) {
+      // Avoid duplicating the base title
+      if (currentRoute.meta_title.includes(baseTitle)) {
+        document.title = currentRoute.meta_title;
+      } else {
+        document.title = `${currentRoute.meta_title} | ${baseTitle}`;
+      }
     } else {
-      document.title = `${currentRoute.meta_title} | ${baseTitle}`;
+      document.title = baseTitle;
     }
-  } else {
-    document.title = baseTitle;
-  }
-}, [location]);
+  }, [location]);
 
   return null;
 }
