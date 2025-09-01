@@ -1,9 +1,44 @@
+// src/pages/.../SecondDashBoard.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { DrugTransaction } from "../../types";
 import { motion } from "framer-motion";
+import type { DrugTransaction } from "../../types";
+import api from "../../api/publicApi"; // ← use the SAME client that works elsewhere
 
-/* ===================== CountUp + KPI Card ===================== */
+/* ─────────────────────────── configurable API bits ─────────────────────────── */
+// Put your real endpoint here. Examples you might have:
+//   "/reports/best-net-differences"
+//   "/analytics/second-dashboard"
+//   "/scriptitems/best-net"
+const SECOND_DASHBOARD_ENDPOINT = "/analytics/second-dashboard";
+
+// If your backend supports filters in query params (recommended), set to true.
+// The component will then hit the API on every filter/sort/page change.
+// If false, it loads once then filters client-side.
+const USE_SERVER_FILTERS = false;
+
+/* ─────────────────────────── utilities ─────────────────────────── */
+const num = (v: any) => (v == null || v === "" ? 0 : Number(v));
+const str = (v: any) => (v == null ? "" : String(v));
+const toSafeDate = (d: any) => {
+  if (!d) return new Date("Invalid");
+  const s = typeof d === "string" ? d.replace(" ", "T") : d;
+  return new Date(s);
+};
+const isValidDate = (d: any) => !isNaN(toSafeDate(d).getTime());
+const monthKey = (d: any) => {
+  const dt = toSafeDate(d);
+  return isValidDate(dt) ? dt.toISOString().slice(0, 7) : "";
+};
+const formatDate = (d: any, locale = "en-US") => {
+  const dt = toSafeDate(d);
+  return isValidDate(dt) ? dt.toLocaleDateString(locale) : "-";
+};
+
+const fmtCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0);
+const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
+
 function useCountUp(value: number, duration = 1000) {
   const [display, setDisplay] = React.useState(0);
   const lastRef = React.useRef(0);
@@ -28,10 +63,6 @@ function useCountUp(value: number, duration = 1000) {
 
   return display;
 }
-
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0);
-const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
 
 function KpiCard({
   title, value, iconClass, variant = "primary", isMoney = false, duration = 900,
@@ -66,119 +97,8 @@ function KpiCard({
     </div>
   );
 }
-/* ============================================================= */
 
-/* ================= Safe date helpers ================= */
-const toSafeDate = (d: any) => {
-  if (!d) return new Date("Invalid");
-  const s = typeof d === "string" ? d.replace(" ", "T") : d;
-  return new Date(s);
-};
-const isValidDate = (d: any) => !isNaN(toSafeDate(d).getTime());
-const monthKey = (d: any) => {
-  const dt = toSafeDate(d);
-  return isValidDate(dt) ? dt.toISOString().slice(0, 7) : "";
-};
-const formatDate = (d: any, locale = "en-US") => {
-  const dt = toSafeDate(d);
-  return isValidDate(dt) ? dt.toLocaleDateString(locale) : "-";
-};
-/* ===================================================== */
-
-interface DashboardProps { data?: DrugTransaction[]; }
-
-/* -------------------- Mock data generator -------------------- */
-const seeded = (seed: number) => { const x = Math.sin(seed) * 10000; return x - Math.floor(x); };
-const pick = <T,>(arr: T[], seed: number) => arr[Math.floor(seeded(seed) * arr.length)];
-const ndc = (seed: number) =>
-  `${10000 + Math.floor(seeded(seed + 1) * 90000)}-${100 + Math.floor(seeded(seed + 2) * 900)}-${1 + Math.floor(seeded(seed + 3) * 4)}`;
-
-const RX_GROUPS = ["Medi-Cal", "Medi-Cal Plus", "OPT-RX", "OPTUM GOLD", "Caremark", "UHC"];
-const BRANCHES = ["LA-01", "LA-02", "SF-01", "OC-01", "SD-01"];
-const USERS = ["sara", "mohamed", "ali", "lina", "youssef"];
-const PRESCRIBERS = ["Dr Noor", "Dr Patel", "Dr Gomez", "Dr Brown", "Dr Wong"];
-const DRUGS = [
-  { name: "Metformin", className: "Biguanides" },
-  { name: "Atorvastatin", className: "Statins" },
-  { name: "Lisinopril", className: "ACE Inhibitors" },
-  { name: "Amlodipine", className: "CCB" },
-  { name: "Losartan", className: "ARBs" },
-];
-const BINS = [
-  { id: 1, name: "Medi-Cal", code: "012345" },
-  { id: 2, name: "Caremark", code: "610591" },
-  { id: 3, name: "OptumRx", code: "987654" },
-  { id: 4, name: "ExpressScripts", code: "004336" },
-];
-const PCNS = [
-  { id: 1, name: "MEDICAL" },
-  { id: 2, name: "OPTUM" },
-  { id: 3, name: "CMK" },
-  { id: 4, name: "MCAL-ALT" },
-];
-
-function dollars(seed: number, base = 5, spread = 50) {
-  return +(base + seeded(seed) * spread).toFixed(2);
-}
-
-function makeMockTransactions(count = 120): DrugTransaction[] {
-  const rows: any[] = [];
-  for (let i = 0; i < count; i++) {
-    const drug = pick(DRUGS, i + 7);
-    const rx = pick(RX_GROUPS, i + 9);
-    const bin = pick(BINS, i + 11);
-    const pcn = pick(PCNS, i + 13);
-    const branch = pick(BRANCHES, i + 17);
-    const user = pick(USERS, i + 19);
-    const prescriber = pick(PRESCRIBERS, i + 23);
-
-    const qty = [30, 60, 90][i % 3];
-    const netPer = dollars(i + 31, 6, 20);
-    const totalNet = +(netPer * qty).toFixed(2);
-    const acq = dollars(i + 33, 10, 60);
-    const insPay = +(totalNet + dollars(i + 35, 2, 10)).toFixed(2);
-    const patPay = dollars(i + 37, 0, 15);
-
-    const betterPer = +(netPer + seeded(i + 41) * 4 + 1).toFixed(3);
-    const betterTotal = +(betterPer * qty).toFixed(3);
-
-    const ndcCode = ndc(i);
-    const altSame = i % 2 === 0;
-    const altNdc = altSame ? ndcCode : ndc(i + 1000);
-    const altDrug = altSame ? drug : pick(DRUGS, i + 45);
-
-    const today = new Date();
-    const d = new Date(today.getTime() - (i % 60) * 24 * 60 * 60 * 1000);
-
-    rows.push({
-      date: d.toISOString(),
-      scriptCode: `RX-${10000 + i}`,
-      highestScriptCode: `RX-${20000 + i}`,
-      highestScriptDate: new Date(d.getTime() - 86400000).toISOString(),
-      branchCode: branch,
-      user,
-      prescriber,
-      insuranceRx: rx, rxGroupId: (i % 6) + 1,
-      binCode: bin.code, binName: bin.name, binId: bin.id,
-      pcnName: pcn.name, pcnId: pcn.id,
-      insuranceId: (i % 6) + 1,
-      drugClass: drug.className, drugName: drug.name, ndcCode, drugId: (i % 100) + 1,
-      patientPayment: patPay, acquisitionCost: acq, insurancePayment: insPay, quantity: qty,
-      netProfitPerItem: +netPer.toFixed(3), netProfit: +totalNet.toFixed(3),
-      highestNetProfitPerItem: +betterPer.toFixed(3), highestNet: +betterTotal.toFixed(3),
-      difference: +(betterTotal - totalNet).toFixed(3),
-      DifferencePerItem: +(betterPer - netPer).toFixed(3),
-      highestDrugNDC: altNdc, highestDrugName: altDrug.name, highestDrugId: (i % 100) + 501,
-      highestRxGroupId: (i % 6) + 10, highestInsuranceRx: pick(RX_GROUPS, i + 51),
-      highestBinId: pick(BINS, i + 53).id, highestBINName: pick(BINS, i + 53).name, highestBINCode: pick(BINS, i + 53).code,
-      highestPcnId: pick(PCNS, i + 57).id, highestPCNName: pick(PCNS, i + 57).name,
-      highestQuantity: qty + ((i % 2) * 30),
-    });
-  }
-  return rows as DrugTransaction[];
-}
-/* ----------------------------------------------------------- */
-
+/* ─────────────────────────── insurance labels map ─────────────────────────── */
 const insurance_mapping: { [key: string]: string } = {
   AL: "Aetna (AL)", BW: "aetna (BW)", AD: "Aetna Medicare (AD)", AF: "Anthem BCBS (AF)",
   DS: "Blue Cross Blue Shield (DS)", CA: "blue shield medicare (CA)", FQ: "Capital Rx (FQ)",
@@ -192,7 +112,38 @@ const insurance_mapping: { [key: string]: string } = {
   AA: "Tri-Care Express Scripts (AA)", AI: "United Healthcare (AI)",
 };
 
-/* ===== UI bits شبيهة بـ Preferences ===== */
+/* ─────────────────────────── field normalization ─────────────────────────── */
+function normalizeRow(r: any) {
+  return {
+    ...r,
+    // tolerate server naming variants
+    highestDrugNDC: r.highestDrugNDC ?? r.HighestDrugNDC ?? r.highstDrugNDC ?? r.HighestDrugNdc,
+    highestDrugName: r.highestDrugName ?? r.HighestDrugName ?? r.highstDrugName,
+    highestDrugId:   r.highestDrugId   ?? r.HighestDrugId   ?? r.highstDrugId,
+
+    highestNet:              num(r.highestNet ?? r.HighestNet ?? r.highstNet),
+    highestNetProfitPerItem: num(r.highestNetProfitPerItem ?? r.HighestNetPerItem ?? r.highstNetPerItem),
+
+    highestBINCode:  r.highestBINCode  ?? r.HighestBINCode,
+    highestBINName:  r.highestBINName  ?? r.HighestBINName,
+    highestBinId:    r.highestBinId    ?? r.HighestBinId,
+    highestPcnId:    r.highestPcnId    ?? r.HighestPcnId,
+    highestPCNName:  r.highestPCNName  ?? r.HighestPCNName,
+    highestRxGroupId:r.highestRxGroupId?? r.HighestRxGroupId,
+    highestInsuranceRx: r.highestInsuranceRx ?? r.HighestInsuranceRx,
+
+    // normalize numeric fields
+    netProfit:        num(r.netProfit),
+    netProfitPerItem: num(r.netProfitPerItem),
+    acquisitionCost:  num(r.acquisitionCost),
+    insurancePayment: num(r.insurancePayment),
+    patientPayment:   num(r.patientPayment),
+
+    insuranceRx: r.insuranceRx ?? r.insurance, // sometimes sent as insurance
+  } as DrugTransaction & Record<string, any>;
+}
+
+/* ─────────────────────────── UI helpers ─────────────────────────── */
 function FilterTile({ label, children }: React.PropsWithChildren<{ label: string }>) {
   return (
     <div className="col-xxl-4 col-xl-4 col-sm-6">
@@ -204,24 +155,13 @@ function FilterTile({ label, children }: React.PropsWithChildren<{ label: string
   );
 }
 
-const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
-  // KPI layout (row by default)
-  const [kpiLayout, setKpiLayout] = useState<"row" | "grid">("row");
-  useEffect(() => {
-    const saved = localStorage.getItem("second_kpiLayout");
-    if (saved === "row" || saved === "grid") setKpiLayout(saved);
-  }, []);
-  useEffect(() => {
-    localStorage.setItem("second_kpiLayout", kpiLayout);
-  }, [kpiLayout]);
+/* ─────────────────────────── component ─────────────────────────── */
+const SecondDashBoard: React.FC = () => {
+  const [rows, setRows] = useState<DrugTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  const initialRows = useMemo<DrugTransaction[]>(
-    () => (data?.length ? data : makeMockTransactions(160)),
-    [data]
-  );
-
-  // نعرض بس الحالات اللي الـ ndcCode = highestDrugNDC
-  const [latestScripts, setLatestScripts] = useState<DrugTransaction[]>([]);
+  // filters
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedInsurance, setSelectedInsurance] = useState("");
@@ -229,39 +169,103 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
 
-  const [filteredData, setFilteredData] = useState<DrugTransaction[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  // table/sort/pagination
   const [sortConfig, setSortConfig] = useState<{ key: keyof DrugTransaction; direction: "ascending" | "descending" } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
 
+  // KPI
   const [belowNetPriceCount, setBelowNetPriceCount] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalNet, setTotalNet] = useState<number>(0);
 
-  const rowsPerPage = 10;
+  // NDC-match toggle (kept true to follow your requirement — can switch off in UI if needed)
+  const [enforceNdcMatch, setEnforceNdcMatch] = useState(true);
 
+  // Fetch function (client- or server-filtering)
+  const fetchData = async () => {
+    setLoading(true);
+    setApiError(null);
+    try {
+      if (USE_SERVER_FILTERS) {
+        const params: Record<string, string | number | undefined> = {
+          month: selectedMonth || undefined,
+          drugClass: selectedClass || undefined,
+          insurance: selectedInsurance || undefined,
+          prescriber: selectedPrescriber || undefined,
+          user: selectedUser || undefined,
+          branch: selectedBranch || undefined,
+          sortKey: sortConfig?.key ? String(sortConfig.key) : undefined,
+          sortDir: sortConfig?.direction,
+          page: currentPage,
+          pageSize: rowsPerPage,
+          ndcMatch: enforceNdcMatch ? 1 : 0,
+        };
+        const { data } = await api.get<DrugTransaction[]>(SECOND_DASHBOARD_ENDPOINT, { params });
+        setRows(Array.isArray(data) ? data.map(normalizeRow) : []);
+      } else {
+        // client-side filtering: load the (recent) dataset once
+        const { data } = await api.get<DrugTransaction[]>(SECOND_DASHBOARD_ENDPOINT);
+        setRows(Array.isArray(data) ? data.map(normalizeRow) : []);
+      }
+    } catch (e: any) {
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        setApiError("Unauthorized to fetch dashboard data (401/403). Make sure you’re logged in and using the authenticated axios client.");
+      } else {
+        setApiError("Failed to load dashboard data.");
+      }
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // initial fetch (and refetch when server-side filtering is enabled)
   useEffect(() => {
-    const result = initialRows || [];
-    const matches = result.filter((item) => item.ndcCode === item.highestDrugNDC);
-    setLatestScripts(matches);
+    if (USE_SERVER_FILTERS) {
+      fetchData();
+    } else {
+      // fetch once, then filter client-side
+      fetchData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }
+  }, [
+    // when using server filters, refetch on every control change:
+    USE_SERVER_FILTERS ? selectedMonth : undefined,
+    USE_SERVER_FILTERS ? selectedClass : undefined,
+    USE_SERVER_FILTERS ? selectedInsurance : undefined,
+    USE_SERVER_FILTERS ? selectedPrescriber : undefined,
+    USE_SERVER_FILTERS ? selectedUser : undefined,
+    USE_SERVER_FILTERS ? selectedBranch : undefined,
+    USE_SERVER_FILTERS ? sortConfig : undefined,
+    USE_SERVER_FILTERS ? currentPage : undefined,
+    USE_SERVER_FILTERS ? enforceNdcMatch : undefined,
+  ]);
 
-    const belowNetCount = matches.filter((item) => (item.netProfit ?? 0) < (item.highestNet ?? 0)).length;
-    const totalRev = matches.reduce((sum, item) => sum + (item.netProfit ?? 0), 0);
-    const totalNetProfit = matches.reduce((sum, item) => sum + ((item.highestNet ?? 0) - (item.netProfit ?? 0)), 0);
+  // normalize + (optionally) enforce ndcCode === highestDrugNDC
+  const baseRows = useMemo(() => {
+    const normalized = rows.map(normalizeRow);
+    if (!enforceNdcMatch) return normalized;
 
-    setBelowNetPriceCount(belowNetCount);
-    setTotalRevenue(+totalRev.toFixed(2));
-    setTotalNet(+totalNetProfit.toFixed(2));
-  }, [initialRows]);
+    const matches = normalized.filter(
+      (item: any) =>
+        str(item.ndcCode).trim() !== "" &&
+        str(item.highestDrugNDC).trim() !== "" &&
+        str(item.ndcCode).trim() === str(item.highestDrugNDC).trim()
+    );
 
-  const normalizeName = (name: string) =>
-    name.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ").replace(/[.,]/g, "");
+    // In case API returns alt field names or sparse data, fall back to full set if no matches
+    return matches.length > 0 ? matches : normalized;
+  }, [rows, enforceNdcMatch]);
 
-  useEffect(() => {
-    let sortedData = [...latestScripts];
+  // client-side sort + filters + KPIs
+  const filteredData = useMemo(() => {
+    let data = [...baseRows];
 
+    // sort
     if (sortConfig) {
       const { key, direction } = sortConfig;
-      sortedData.sort((a, b) => {
+      data.sort((a, b) => {
         const va = (a as any)[key], vb = (b as any)[key];
         if (va == null && vb == null) return 0;
         if (va == null) return 1;
@@ -272,8 +276,9 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
       });
     }
 
-    const filtered = sortedData.filter((item) => {
-      const itemMonth = monthKey((item as any).date);
+    // filters
+    data = data.filter((item: any) => {
+      const itemMonth = monthKey(item.date);
       return (
         (!selectedClass || item.drugClass === selectedClass) &&
         (!selectedInsurance || item.insuranceRx === selectedInsurance) &&
@@ -284,18 +289,18 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
       );
     });
 
-    setFilteredData(filtered);
+    // KPIs
+    const below = data.filter((it: any) => num(it.netProfit) < num(it.highestNet)).length;
+    const totalRev = data.reduce((s: number, it: any) => s + num(it.netProfit), 0);
+    const totalDev = data.reduce((s: number, it: any) => s + (num(it.highestNet) - num(it.netProfit)), 0);
 
-    const belowNetCount = filtered.filter((item) => (item.netProfit ?? 0) < (item.highestNet ?? 0)).length;
-    const totalRev = filtered.reduce((sum, item) => sum + (item.netProfit ?? 0), 0);
-    const totalNetProfit = filtered.reduce((sum, item) => sum + ((item.highestNet ?? 0) - (item.netProfit ?? 0)), 0);
-
-    setBelowNetPriceCount(belowNetCount);
+    setBelowNetPriceCount(below);
     setTotalRevenue(+totalRev.toFixed(2));
-    setTotalNet(+totalNetProfit.toFixed(2));
-    setCurrentPage(1);
+    setTotalNet(+totalDev.toFixed(2));
+
+    return data;
   }, [
-    latestScripts,
+    baseRows,
     sortConfig,
     selectedClass,
     selectedInsurance,
@@ -305,6 +310,11 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
     selectedMonth,
   ]);
 
+  // pagination (client-side)
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+  const currentRecords = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  useEffect(() => setCurrentPage(1), [selectedClass, selectedInsurance, selectedPrescriber, selectedUser, selectedBranch, selectedMonth, enforceNdcMatch]);
+
   const requestSort = (key: keyof DrugTransaction) =>
     setSortConfig((prev) =>
       !prev || prev.key !== key
@@ -312,25 +322,41 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
         : { key, direction: prev.direction === "ascending" ? "descending" : "ascending" }
     );
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
-  const currentRecords = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  // options for filter selects
+  const months = useMemo(
+    () => Array.from(new Set(baseRows.map((i: any) => monthKey(i.date)))).sort().map(m => ({ value: m, label: m || "—" })),
+    [baseRows]
+  );
+  const classesOpts    = useMemo(() => [...new Set(baseRows.map((i: any) => i.drugClass))].sort().map(x => ({ value: String(x), label: String(x) })), [baseRows]);
+  const insurancesOpts = useMemo(() => [...new Set(baseRows.map((i: any) => i.insuranceRx))].sort().map(ins => ({
+    value: String(ins), label: String(ins) === "  " ? "MARCOG" : (insurance_mapping[String(ins)] || String(ins)),
+  })), [baseRows]);
+  const prescribersOpts= useMemo(() => [...new Set(baseRows.map((i: any) => i.prescriber))].sort().map(x => ({ value: String(x), label: String(x) })), [baseRows]);
+  const usersOpts      = useMemo(() => [...new Set(baseRows.map((i: any) => i.user))].sort().map(x => ({ value: String(x), label: String(x) })), [baseRows]);
+  const branchesOpts   = useMemo(() => [...new Set(baseRows.map((i: any) => i.branchCode))].sort().map(x => ({ value: String(x), label: String(x) })), [baseRows]);
+
+  const resetFilters = () => {
+    setSelectedMonth(""); setSelectedClass(""); setSelectedInsurance("");
+    setSelectedPrescriber(""); setSelectedUser(""); setSelectedBranch("");
+  };
 
   const downloadCSV = () => {
     const headers = [
       "Date","Script","Insurance","Drug Class","Drug Name","NDC Code","Patient Payment","ACQ",
       "Insurance Payment","Prescriber","Net Profit","Highest Net","Difference","Highest NDC","Highest Drug",
     ];
-    const rows = filteredData.map((item) => [
-      new Date(item.date as any).toLocaleDateString("en-US"),
+    const rowsCsv = filteredData.map((item: any) => [
+      new Date(item.date).toLocaleDateString("en-US"),
       item.scriptCode, item.insuranceRx, item.drugClass, item.drugName, item.ndcCode,
-      item.patientPayment, item.acquisitionCost, item.insurancePayment, normalizeName(item.prescriber as any),
-      (item.netProfit ?? 0).toFixed(2),
-      item.highestNet ?? 0,
-      ((item.highestNet ?? 0) - (item.netProfit ?? 0)).toFixed(2),
+      item.patientPayment, item.acquisitionCost, item.insurancePayment,
+      String(item.prescriber || "").replace(/[.,]/g, "").replace(/\s+/g, " ").trim(),
+      num(item.netProfit).toFixed(2),
+      num(item.highestNet),
+      (num(item.highestNet) - num(item.netProfit)).toFixed(2),
       item.highestDrugNDC,
       item.highestDrugName,
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rowsCsv.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -340,42 +366,7 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
     URL.revokeObjectURL(url);
   };
 
-  const months = useMemo(
-    () => Array.from(new Set(latestScripts.map(i => monthKey((i as any).date)))).sort().map(m => ({ value: m, label: m || "—" })),
-    [latestScripts]
-  );
-  const classesOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.drugClass))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const insurancesOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.insuranceRx))].sort().map(ins => ({
-      value: String(ins), label: ins === "  " ? "MARCOG" : (insurance_mapping[String(ins)] || String(ins)),
-    })),
-    [latestScripts]
-  );
-  const prescribersOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.prescriber))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const usersOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.user))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const branchesOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.branchCode))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const resetFilters = () => {
-    setSelectedMonth(""); setSelectedClass(""); setSelectedInsurance("");
-    setSelectedPrescriber(""); setSelectedUser(""); setSelectedBranch("");
-  };
-
-  const sortIcon = (k: keyof DrugTransaction) => {
-    if (!sortConfig || sortConfig.key !== k) return "ti ti-arrows-sort text-muted";
-    return sortConfig.direction === "ascending" ? "ti ti-arrow-up" : "ti ti-arrow-down";
-  };
-
+  /* ─────────────────────────── UI ─────────────────────────── */
   return (
     <motion.div>
       <div className="page-wrapper" id="main-content">
@@ -384,50 +375,27 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
             Estimated Best Net Differences
           </h3>
 
-          {/* ===== KPIs + layout toggle ===== */}
-          <div className="d-flex align-items-center justify-content-between mb-2">
-            <span className="text-muted small">Overview</span>
-            <div className="btn-group">
-              <button
-                type="button"
-                className={`btn btn-sm btn-outline-light ${kpiLayout === "row" ? "active" : ""}`}
-                title="1 × 4"
-                onClick={() => setKpiLayout("row")}
-              >
-                <i className="ti ti-layout-navbar" />
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm btn-outline-light ${kpiLayout === "grid" ? "active" : ""}`}
-                title="2 × 2"
-                onClick={() => setKpiLayout("grid")}
-              >
-                <i className="ti ti-layout-grid" />
-              </button>
-            </div>
-          </div>
-
+          {/* KPI row */}
           <div className="row g-3 mb-4">
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
-              <KpiCard title="Total Scripts" value={filteredData.length} iconClass="ti ti-pill" variant="primary" />
-            </div>
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
-              <KpiCard title="Deviation Count" value={belowNetPriceCount} iconClass="ti ti-alert-triangle" variant="danger" duration={1100} />
-            </div>
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
-              <KpiCard title="Total Deviation" value={totalNet} iconClass="ti ti-chart-line" variant="success" isMoney duration={1200} />
-            </div>
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-3 col-md-6 d-flex"}>
-              <KpiCard title="Total Revenue" value={totalRevenue} iconClass="ti ti-chart-bar" variant="purple" isMoney duration={1200} />
-            </div>
+            <div className="col-xl-3 col-md-6 d-flex"><KpiCard title="Total Scripts" value={filteredData.length} iconClass="ti ti-pill" variant="primary" /></div>
+            <div className="col-xl-3 col-md-6 d-flex"><KpiCard title="Total Prescriptions with Deviation" value={belowNetPriceCount} iconClass="ti ti-alert-triangle" variant="danger" duration={1100} /></div>
+            <div className="col-xl-3 col-md-6 d-flex"><KpiCard title="Total Deviation" value={totalNet} iconClass="ti ti-chart-line" variant="success" isMoney duration={1200} /></div>
+            <div className="col-xl-3 col-md-6 d-flex"><KpiCard title="Total Revenue from Matching Scripts" value={totalRevenue} iconClass="ti ti-chart-bar" variant="purple" isMoney duration={1200} /></div>
           </div>
 
-          {/* ===== Filters (Preferences-style tiles) ===== */}
+          {/* Filters */}
           <div className="card mb-3">
             <div className="card-header border-0 pb-1">
               <h5 className="mb-0 pt-2">Filters</h5>
             </div>
             <div className="card-body">
+              {apiError && (
+                <div className="alert alert-warning mb-3">
+                  <i className="ti ti-alert-triangle me-2" />
+                  {apiError}
+                </div>
+              )}
+
               <div className="row row-gap-4">
                 <FilterTile label="Month">
                   <select className="form-select form-select-sm" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
@@ -470,10 +438,19 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                     {branchesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </FilterTile>
+
+                <FilterTile label="Match NDC = Highest NDC">
+                  <div className="form-check form-switch">
+                    <input className="form-check-input" type="checkbox" checked={enforceNdcMatch} onChange={(e) => setEnforceNdcMatch(e.target.checked)} />
+                  </div>
+                </FilterTile>
               </div>
 
               <div className="d-flex align-items-center justify-content-end gap-2 border-top mt-4 pt-3">
-                <button type="button" className="btn btn-outline-light me-2" onClick={resetFilters}>
+                <button type="button" className="btn btn-outline-light me-2" onClick={() => {
+                  setSelectedMonth(""); setSelectedClass(""); setSelectedInsurance("");
+                  setSelectedPrescriber(""); setSelectedUser(""); setSelectedBranch("");
+                }}>
                   Reset
                 </button>
                 <button type="button" className="btn btn-primary" onClick={downloadCSV}>
@@ -483,7 +460,7 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
             </div>
           </div>
 
-          {/* ===== Card + Table (Visits-style) ===== */}
+          {/* Table */}
           <div className="card mb-0">
             <div className="card-header d-flex align-items-center flex-wrap gap-2 justify-content-between">
               <h5 className="d-inline-flex align-items-center mb-0">
@@ -491,8 +468,8 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
               </h5>
 
               <div className="d-flex align-items-center gap-2">
-                <button type="button" className="btn btn-icon btn-white" title="Refresh" onClick={() => window.location.reload()}>
-                  <i className="ti ti-refresh" />
+                <button type="button" className="btn btn-icon btn-white" title="Refresh" onClick={fetchData} disabled={loading}>
+                  <i className={`ti ${loading ? "ti-loader" : "ti-refresh"}`} />
                 </button>
                 <button type="button" className="btn btn-icon btn-white" title="Print" onClick={() => window.print()}>
                   <i className="ti ti-printer" />
@@ -500,28 +477,6 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                 <button type="button" className="btn btn-icon btn-white" title="Download" onClick={downloadCSV}>
                   <i className="ti ti-cloud-download" />
                 </button>
-
-                <div className="dropdown">
-                  <button className="dropdown-toggle btn btn-md btn-outline-light d-inline-flex align-items-center" data-bs-toggle="dropdown">
-                    <i className="ti ti-sort-descending-2 me-1" />
-                    <span className="me-1">Sort By : </span>
-                    {sortConfig?.key === "date" && sortConfig.direction === "ascending" ? "Oldest" : "Newest"}
-                  </button>
-                  <ul className="dropdown-menu dropdown-menu-end p-2">
-                    <li>
-                      <button type="button" className="dropdown-item rounded-1"
-                        onClick={() => setSortConfig({ key: "date" as keyof DrugTransaction, direction: "descending" })}>
-                        Newest
-                      </button>
-                    </li>
-                    <li>
-                      <button type="button" className="dropdown-item rounded-1"
-                        onClick={() => setSortConfig({ key: "date" as keyof DrugTransaction, direction: "ascending" })}>
-                        Oldest
-                      </button>
-                    </li>
-                  </ul>
-                </div>
               </div>
             </div>
 
@@ -569,7 +524,7 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                           title="Sort"
                         >
                           <span className="d-inline-flex align-items-center gap-1">
-                            {label} <i className={sortIcon(key)} />
+                            {label} <i className="ti ti-arrows-sort text-muted" />
                           </span>
                         </th>
                       ))}
@@ -577,13 +532,13 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                   </thead>
 
                   <tbody>
-                    {currentRecords.map((item, index) => {
-                      const diff = ((item.highestNet ?? 0) - (item.netProfit ?? 0)) as number;
-                      const diffPer = ((item.highestNetProfitPerItem ?? 0) - (item.netProfitPerItem ?? 0)) as number;
+                    {currentRecords.map((item: any, index) => {
+                      const diff = num(item.highestNet) - num(item.netProfit);
+                      const diffPer = num(item.highestNetProfitPerItem) - num(item.netProfitPerItem);
 
                       return (
                         <tr key={index}>
-                          <td className="text-nowrap">{formatDate((item as any).date)}</td>
+                          <td className="text-nowrap">{formatDate(item.date)}</td>
                           <td>
                             <a href={`/scriptitems/${item.scriptCode}`} className="link-primary fw-semibold">
                               {item.scriptCode}
@@ -633,13 +588,13 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                           <td className="text-end">{item.patientPayment}</td>
                           <td className="text-end">{item.acquisitionCost}</td>
                           <td className="text-end">{item.insurancePayment}</td>
-                          <td>{normalizeName(String(item.prescriber || ""))}</td>
+                          <td>{String(item.prescriber || "").replace(/[.,]/g, "").replace(/\s+/g, " ").trim()}</td>
                           <td className="text-end">{item.quantity}</td>
 
-                          <td className="text-end">{(item.netProfitPerItem ?? 0).toFixed(3)}</td>
-                          <td className="text-end">{(item.netProfit ?? 0).toFixed(3)}</td>
-                          <td className="text-end">{(item.highestNetProfitPerItem ?? 0).toFixed(3)}</td>
-                          <td className="text-end">{(item.highestNet ?? 0).toFixed(3)}</td>
+                          <td className="text-end">{num(item.netProfitPerItem).toFixed(3)}</td>
+                          <td className="text-end">{num(item.netProfit).toFixed(3)}</td>
+                          <td className="text-end">{num(item.highestNetProfitPerItem).toFixed(3)}</td>
+                          <td className="text-end">{num(item.highestNet).toFixed(3)}</td>
 
                           <td className={`text-end ${diff > 0 ? "text-danger" : "text-muted"}`}>{diff.toFixed(3)}</td>
                           <td className={`text-end ${diffPer > 0 ? "text-danger" : "text-muted"}`}>{diffPer.toFixed(3)}</td>
@@ -699,7 +654,7 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                             )}
                           </td>
 
-                          <td className="text-nowrap">{formatDate((item as any).highestScriptDate)}</td>
+                          <td className="text-nowrap">{formatDate(item.highestScriptDate)}</td>
                         </tr>
                       );
                     })}
@@ -707,7 +662,7 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                 </table>
               </div>
 
-              {/* Pagination (نفس الشكل) */}
+              {/* Pagination */}
               <div className="d-flex align-items-center justify-content-between mt-3">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
@@ -727,9 +682,14 @@ const SecondDashBoard: React.FC<DashboardProps> = ({ data }) => {
                   Next <ChevronRight className="ms-1" size={16} />
                 </button>
               </div>
+
+              {loading && (
+                <div className="text-center text-muted mt-3">
+                  <i className="ti ti-loader me-1" /> Loading…
+                </div>
+              )}
             </div>
           </div>
-          {/* /card */}
         </div>
       </div>
     </motion.div>

@@ -1,137 +1,189 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
+import debounce from "debounce";
+import axiosInstance from "../../api/axiosInstance"; // ← عدّل المسار لو لزم
+// لو بتستخدم react-router:
+void useMemo;
+let navigateFn: ((path: string) => void) | null = null;
+try {
+  // optional import to avoid hard dependency if not installed
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { useNavigate } = require("react-router-dom");
+  // small hook shim; if react-router exists, we'll use it below
+  // @ts-ignore
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const nav = typeof useNavigate === "function" ? useNavigate : null;
+  if (nav) navigateFn = nav();
+} catch { /* no-op: fall back to window.location.href */ }
 
-/** ====== Mock Data ====== */
-type Drug = { id: number; name: string };
+/** ====== Types (مطابقة للصفحة الأولى) ====== */
+type Drug = {
+  id: number;
+  name: string;
+  ndc?: string;
+};
 type DrugInsuranceInfo = { insuranceId: number; insurance: string };
-type Prescription = { net?: number; ndc?: string; drugName?: string };
-
-const MOCK_DRUGS: Drug[] = [
-  { id: 1, name: "Metformin" },
-  { id: 2, name: "Atorvastatin" },
-  { id: 3, name: "Lisinopril" },
-  { id: 4, name: "Amlodipine" },
-  { id: 5, name: "Losartan" },
-  { id: 6, name: "Levothyroxine" },
-  { id: 7, name: "Omeprazole" },
-  { id: 8, name: "Gabapentin" },
-  { id: 9, name: "Hydrochlorothiazide" },
-  { id: 10, name: "Simvastatin" },
-];
-
-const MOCK_NDCS_BY_DRUG: Record<string, string[]> = {
-  Metformin: ["00093-1048-01", "00185-0730-01"],
-  Atorvastatin: ["00603-1930-21", "60505-3673-3"],
-  Lisinopril: ["68180-0518-01", "00093-1044-01"],
-  Amlodipine: ["69097-127-05", "00603-3895-21"],
-  Losartan: ["00603-5880-21"],
-};
-
-const MOCK_INS_BY_NDC: Record<string, DrugInsuranceInfo[]> = {
-  "00093-1048-01": [
-    { insuranceId: 11, insurance: "Blue Cross" },
-    { insuranceId: 12, insurance: "Aetna" },
-  ],
-  "00185-0730-01": [{ insuranceId: 13, insurance: "United" }],
-  "00603-1930-21": [{ insuranceId: 21, insurance: "Medicare" }],
-  "60505-3673-3": [{ insuranceId: 22, insurance: "Cigna" }],
-  "68180-0518-01": [{ insuranceId: 31, insurance: "Anthem" }],
-  "00093-1044-01": [{ insuranceId: 32, insurance: "Blue Cross" }],
-  "69097-127-05": [{ insuranceId: 41, insurance: "Aetna" }],
-  "00603-3895-21": [{ insuranceId: 42, insurance: "United" }],
-  "00603-5880-21": [{ insuranceId: 51, insurance: "Cigna" }],
-};
-
-const MOCK_DETAILS: Record<string, Prescription> = {
-  "00093-1048-01::11": { net: 12.7, ndc: "00093-1048-01", drugName: "Metformin" },
-  "00093-1048-01::12": { net: 8.2, ndc: "00093-1048-01", drugName: "Metformin" },
-  "00185-0730-01::13": { net: 10.4, ndc: "00185-0730-01", drugName: "Metformin" },
-  "00603-1930-21::21": { net: 6.9, ndc: "00603-1930-21", drugName: "Atorvastatin" },
-  "60505-3673-3::22": { net: 9.5, ndc: "60505-3673-3", drugName: "Atorvastatin" },
-};
+type Prescription = { net?: number; ndcCode?: string; drugName?: string; drugClassId?: number };
 
 /** ====== Component ====== */
 const DrugSearch: React.FC = () => {
-  // Search State
+  /** Search + suggestions (من API) */
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [suggestions, setSuggestions] = useState<Drug[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Selected State
+  /** Selected state */
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null);
   const [ndcList, setNdcList] = useState<string[]>([]);
   const [selectedNdc, setSelectedNdc] = useState("");
   const [insList, setInsList] = useState<DrugInsuranceInfo[]>([]);
   const [selectedIns, setSelectedIns] = useState<DrugInsuranceInfo | null>(null);
+  const [details, setDetails] = useState<Prescription | null>(null);
 
-  // Details Preview (Mock)
-  const details: Prescription | null = useMemo(() => {
-    if (!selectedNdc || !selectedIns) return null;
-    const key = `${selectedNdc}::${selectedIns.insuranceId}`;
-    return MOCK_DETAILS[key] ?? null;
-  }, [selectedNdc, selectedIns]);
+  /** ====== Debounced API search (مطابق للصفحة الأولى) ====== */
+  const debouncedSearch = useCallback(
+    debounce(async (text: string, page: number) => {
+      if (!text || text.trim().length < 1) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setHasMore(false);
+        return;
+      }
+      try {
+        setIsLoading(true);
+        const { data } = await axiosInstance.get(
+          `/drug/searchByName?name=${encodeURIComponent(text)}&pageNumber=${page}&pageSize=20`
+        );
+        setSuggestions((prev) => (page === 1 ? data : [...prev, ...data]));
+        setShowSuggestions(true);
+        setHasMore(Array.isArray(data) && data.length > 0);
+      } catch (e) {
+        console.error("Error searching drugs:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300),
+    []
+  );
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const pageRef = useRef(pageNumber);
+  useEffect(() => { pageRef.current = pageNumber; }, [pageNumber]);
 
-  // Filtered suggestions
-  const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return MOCK_DRUGS.filter((d) => d.name.toLowerCase().includes(q)).slice(0, 30);
-  }, [query]);
-
-  // Close on click outside
+  /** Infinite scroll داخل قائمة الاقتراحات */
+  const onSuggestionsScroll = () => {
+    if (!dropdownRef.current || isLoading || !hasMore) return;
+    const { scrollTop, clientHeight, scrollHeight } = dropdownRef.current;
+    if (scrollTop + clientHeight >= scrollHeight - 8) {
+      const nextPage = pageRef.current + 1;
+      setPageNumber(nextPage);
+      debouncedSearch(query, nextPage);
+    }
+  };
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (!t.closest("#drugSearch") && !t.closest("#suggestion-list")) {
-        setShowSuggestions(false);
-      }
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
+    const el = dropdownRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", onSuggestionsScroll);
+    return () => el.removeEventListener("scroll", onSuggestionsScroll);
+  }, [isLoading, hasMore, query]);
 
-  // Handlers
+  /** Handlers */
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
+    const val = e.target.value;
+    setQuery(val);
     setActiveIndex(-1);
+    setPageNumber(1);
+    setSuggestions([]);
+    debouncedSearch(val, 1);
     setShowSuggestions(true);
   };
 
-  const handlePickDrug = (drug: Drug) => {
+  const handlePickDrug = async (drug: Drug) => {
     setSelectedDrug(drug);
     setQuery(drug.name);
     setShowSuggestions(false);
-
-    const ndcs = MOCK_NDCS_BY_DRUG[drug.name] ?? [];
-    setNdcList(ndcs);
+    // reset dependent state
+    setNdcList([]);
     setSelectedNdc("");
     setInsList([]);
     setSelectedIns(null);
+    setDetails(null);
+    try {
+      const { data } = await axiosInstance.get(`/drug/getDrugNDCs?name=${encodeURIComponent(drug.name)}`);
+      setNdcList(data ?? []);
+    } catch (e) {
+      console.error("Error fetching NDCs:", e);
+    }
   };
 
-  const handlePickNdc = (ndc: string) => {
+  const handlePickNdc = async (ndc: string) => {
     setSelectedNdc(ndc);
-    setInsList(MOCK_INS_BY_NDC[ndc] ?? []);
+    setInsList([]);
     setSelectedIns(null);
+    setDetails(null);
+    if (!ndc) return;
+    try {
+      const { data } = await axiosInstance.get(`/drug/GetInsuranceByNdc?ndc=${encodeURIComponent(ndc)}`);
+      setInsList(data ?? []);
+    } catch (e) {
+      console.error("Error fetching insurances:", e);
+    }
   };
 
-  const handlePickIns = (id: number) => {
+  const handlePickIns = async (id: number) => {
     const found = insList.find((i) => i.insuranceId === id) ?? null;
     setSelectedIns(found);
+    setDetails(null);
   };
+
+  /** جلب تفاصيل الـ Net عند اكتمال الـ NDC + Insurance */
+  useEffect(() => {
+    (async () => {
+      if (!selectedNdc || !selectedIns) return;
+      try {
+        const { data } = await axiosInstance.get(
+          `/drug/GetDetails?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedIns.insuranceId}`
+        );
+        setDetails(data ?? null);
+      } catch (e) {
+        console.error("Error fetching details:", e);
+        setDetails(null);
+      }
+    })();
+  }, [selectedNdc, selectedIns]);
 
   const clearAll = () => {
     setQuery("");
     setShowSuggestions(false);
     setActiveIndex(-1);
+    setSuggestions([]);
     setSelectedDrug(null);
     setNdcList([]);
     setSelectedNdc("");
     setInsList([]);
     setSelectedIns(null);
+    setDetails(null);
+    setPageNumber(1);
+    setHasMore(true);
+  };
+
+  const viewDrugDetails = () => {
+    if (!selectedDrug) return;
+    // حفظ اسم التأمين (نفس سلوك الصفحة الأولى)
+    if (selectedIns?.insurance) {
+      localStorage.setItem("selectedRx", selectedIns.insurance);
+    }
+    const url = `/drug/${selectedDrug.id}?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedIns?.insuranceId ?? ""}`;
+    if (navigateFn) {
+      navigateFn(url);
+    } else {
+      window.location.href = url;
+    }
   };
 
   return (
@@ -149,10 +201,10 @@ const DrugSearch: React.FC = () => {
                 Medicine Search
               </h4>
               <p className="mb-0 opacity-75 mt-2">
-                Search by name, then select the NDC and the insurance — all mock data until we connect the API.
+                Search by name, then select the NDC and the insurance — now connected to the live API.
               </p>
             </div>
-            
+
             <div className="card-body p-5">
               {/* Search input */}
               <div className="mb-4 position-relative">
@@ -194,9 +246,9 @@ const DrugSearch: React.FC = () => {
                     style={{ height: "52px" }}
                   />
                   {query && (
-                    <button 
-                      className="btn btn-outline-secondary d-flex align-items-center" 
-                      onClick={clearAll} 
+                    <button
+                      className="btn btn-outline-secondary d-flex align-items-center"
+                      onClick={clearAll}
                       aria-label="Clear search"
                       style={{ height: "52px" }}
                     >
@@ -227,6 +279,9 @@ const DrugSearch: React.FC = () => {
                         {d.name}
                       </button>
                     ))}
+                    {isLoading && (
+                      <div className="px-4 py-2 small text-muted">Loading…</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -271,7 +326,7 @@ const DrugSearch: React.FC = () => {
                 </div>
               )}
 
-              {/* Preview (Mock) */}
+              {/* Live Preview */}
               {details && (
                 <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
                   <div className="bg-white p-3 rounded-3">
@@ -279,7 +334,9 @@ const DrugSearch: React.FC = () => {
                   </div>
                   <div>
                     <div className="fw-semibold">Estimated Net Price</div>
-                    <div className="fs-5 fw-bold">{details.net != null ? `$${details.net}` : "N/A"}</div>
+                    <div className="fs-5 fw-bold">
+                      {details.net != null ? `$${details.net}` : "N/A"}
+                    </div>
                   </div>
                 </div>
               )}
@@ -289,8 +346,7 @@ const DrugSearch: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
-                  data-bs-toggle="modal"
-                  data-bs-target="#detailsModal"
+                  onClick={viewDrugDetails}
                 >
                   <i className="ti ti-file-text me-2"></i>
                   View Drug Details
@@ -301,50 +357,7 @@ const DrugSearch: React.FC = () => {
         </div>
       </div>
 
-      {/* Details Modal (Mock) */}
-      <div className="modal fade" id="detailsModal" tabIndex={-1} aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content border-0 shadow-lg">
-            <div className="modal-header bg-primary text-white">
-              <h6 className="modal-title">
-                <i className="ti ti-info-circle me-2"></i>
-                Drug Details (Mock)
-              </h6>
-              <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" />
-            </div>
-            <div className="modal-body">
-              <div className="row mb-3">
-                <div className="col-6">
-                  <div className="text-muted small">Drug:</div>
-                  <div className="fw-semibold">{selectedDrug?.name || "-"}</div>
-                </div>
-                <div className="col-6">
-                  <div className="text-muted small">NDC:</div>
-                  <div className="fw-semibold">{selectedNdc || "-"}</div>
-                </div>
-              </div>
-              <div className="row mb-3">
-                <div className="col-6">
-                  <div className="text-muted small">Insurance:</div>
-                  <div className="fw-semibold">{selectedIns?.insurance || "-"}</div>
-                </div>
-                <div className="col-6">
-                  <div className="text-muted small">Net Price:</div>
-                  <div className="fw-semibold">{details?.net != null ? `$${details.net}` : "-"}</div>
-                </div>
-              </div>
-              <hr />
-              <div className="small text-muted">
-                <i className="ti ti-info-circle me-1"></i>
-                This is mock data until we connect to the actual API.
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-light" data-bs-dismiss="modal">Close</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Details Modal تم إزالته لأنه كان mock؛ هنوجّه مباشرة لصفحة التفاصيل */}
     </div>
   );
 };

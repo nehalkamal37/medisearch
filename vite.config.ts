@@ -5,6 +5,19 @@ import { visualizer } from 'rollup-plugin-visualizer';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    
+    proxy: {
+      "/api": {
+        target: "https://store.medisearchtool.com",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
+  },
+
+
   build: {
     rollupOptions: {
       plugins: [visualizer({ template: 'raw-data', open: false })],

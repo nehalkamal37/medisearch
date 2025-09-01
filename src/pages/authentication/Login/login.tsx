@@ -1,181 +1,238 @@
+// src/pages/authentication/Login/login.tsx
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ImageWithBasePath from "../../../components/image-with-base-path";
 import { all_routes } from "../../../routes/all_routes";
-import { useState } from "react";
-type PasswordField = "password" | "confirmPassword";
+import { Eye, EyeOff, Mail } from "lucide-react";
+import axios from "axios";
 
-const Login = () => {
+type PasswordField = "password";
+
+const Login: React.FC = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    email: "admin@dreamsemr.com",
-    password: "admin123"
+
+  // ---- Local, auth-agnostic axios client ----
+  // In dev it uses /api (proxied by Vite) → no CORS.
+  // In prod it uses VITE_API_BASE_URL (fallback to live domain if not set).
+  const api = axios.create({
+    baseURL: import.meta.env.DEV
+      ? "/api"
+      : (import.meta.env.VITE_API_BASE_URL as string) ||
+        "https://store.medisearchtool.com",
+    withCredentials: false, // keep false during dev unless you really need cookies
+    headers: { "Content-Type": "application/json" },
   });
-  const [passwordVisibility, setPasswordVisibility] = useState({
+
+  // ---- Form state ----
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+
+  // ---- UI state ----
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [passwordVisibility, setPasswordVisibility] = useState<
+    Record<PasswordField, boolean>
+  >({
     password: false,
-    confirmPassword: false,
   });
 
   const togglePasswordVisibility = (field: PasswordField) => {
-    setPasswordVisibility((prevState) => ({
-      ...prevState,
-      [field]: !prevState[field],
-    }));
+    setPasswordVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Fake authentication - check if credentials match
-    if (formData.email === "admin@dreamsemr.com" && formData.password === "admin123") {
-      // Simulate loading state
-      const loginButton = document.querySelector('.btn-login') as HTMLButtonElement;
-      if (loginButton) {
-        loginButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Signing In...';
-        loginButton.disabled = true;
+    setErrorMsg("");
+    setIsSubmitting(true);
+
+    try {
+      // IMPORTANT: no full absolute URL here; use the instance baseURL
+      const response = await api.post("/user/login", { email, password });
+
+      // If your backend returns tokens, save them here
+      // Adjust keys to match your API’s response shape
+      const { accessToken, role, branchId, classType } = response.data || {};
+      if (accessToken) localStorage.setItem("accessToken", accessToken);
+      if (role != null) localStorage.setItem("role", String(role));
+      if (branchId != null) localStorage.setItem("branchId", String(branchId));
+      if (classType != null) localStorage.setItem("classType", String(classType));
+
+      // Go to whatever route you want after login
+      const NEXT = (all_routes as any)?.drugSearch || (all_routes as any)?.dashboard || "/dashboard";
+      navigate(NEXT);
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      // Nice message for common cases:
+      if (err?.response?.status === 401) {
+        setErrorMsg("Invalid credentials. Please try again.");
+      } else if (err?.message?.includes("Network Error")) {
+        setErrorMsg("Network error. Check your API/proxy settings.");
+      } else {
+        setErrorMsg("Login failed. Please check your inputs and try again.");
       }
-      
-      // Simulate API delay
-      setTimeout(() => {
-        // Store fake auth token
-        localStorage.setItem('authToken', 'fake-jwt-token-12345');
-        localStorage.setItem('userEmail', formData.email);
-        
-        // Redirect to dashboard
-        navigate(all_routes.drugSearch);
-      }, 1500);
-    } else {
-      alert('Invalid credentials. Please use admin@dreamsemr.com / admin123');
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
+
   return (
     <>
       {/* Start Content */}
       <div className="container-fluid position-relative z-1">
-        <div className="w-100 overflow-hidden position-relative d-flex align-items-center justify-content-center vh-100" 
-             style={{ 
-               background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-               backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" fill=\"%23f8f9fa\"/><path d=\"M0 50 L100 50 M50 0 L50 100\" stroke=\"%23e9ecef\" stroke-width=\"1\"/></svg>')"
-             }}>
+        <div
+          className="w-100 overflow-hidden position-relative d-flex align-items-center justify-content-center vh-100"
+          style={{
+            background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+            backgroundImage:
+              'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8f9fa"/><path d="M0 50 L100 50 M50 0 L50 100" stroke="%23e9ecef" stroke-width="1"/></svg>\')',
+          }}
+        >
           {/* Form Container */}
           <div className="row justify-content-center w-100">
             <div className="col-xl-4 col-lg-6 col-md-8 col-sm-10">
-              <div className="card border-0 p-4 shadow-lg rounded-4" 
-                   style={{
-                     backgroundColor: "rgba(255, 255, 255, 0.95)",
-                     backdropFilter: "blur(10px)",
-                     boxShadow: "0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07)"
-                   }}>
+              <div
+                className="card border-0 p-4 shadow-lg rounded-4"
+                style={{
+                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                  backdropFilter: "blur(10px)",
+                  boxShadow:
+                    "0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07)",
+                }}
+              >
                 <div className="card-body p-4">
                   <div className="text-center mb-4">
-                    <Link to={all_routes.dashboard} className="logo d-inline-block">
+                    <Link to={(all_routes as any)?.dashboard || "/"} className="logo d-inline-block">
                       <ImageWithBasePath
                         src="assets/img/logo-dark.svg"
                         className="img-fluid h-[40]"
                         alt="Logo"
-                     //   style={{ height: "40px" }}
                       />
                     </Link>
                   </div>
+
                   <div className="text-center mb-4">
                     <h4 className="fw-bold text-dark mb-1">Hi, Welcome Back</h4>
                     <p className="text-muted">Sign in to continue to your account</p>
                   </div>
-                  <form onSubmit={handleLogin}>
+
+                  {/* Error alert */}
+                  {errorMsg && (
+                    <div role="alert" aria-live="assertive" className="alert alert-danger">
+                      {errorMsg}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLogin} noValidate>
+                    {/* Email */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium">
-                        Email<span className="text-danger ms-1">*</span>
+                      <label className="form-label fw-medium" htmlFor="email">
+                        Email <span className="text-danger ms-1">*</span>
                       </label>
                       <div className="input-group input-group-lg">
                         <span className="input-group-text bg-light border-end-0">
-                          <i className="ti ti-mail fs-5 text-primary" />
+                          <Mail className="fs-5 text-primary" />
                         </span>
                         <input
-                          type="email"
+                          id="email"
                           name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
+                          type="email"
                           className="form-control border-start-0 ps-2"
                           required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@example.com"
                           style={{ height: "48px" }}
+                          aria-required="true"
                         />
                       </div>
                     </div>
+
+                    {/* Password */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium">
-                        Password<span className="text-danger ms-1">*</span>
+                      <label className="form-label fw-medium" htmlFor="password">
+                        Password <span className="text-danger ms-1">*</span>
                       </label>
-                      <div className="input-group input-group-lg pass-group">
+                      <div className="input-group input-group-lg pass-group position-relative">
                         <span className="input-group-text bg-light border-end-0">
                           <i className="ti ti-lock fs-5 text-primary" />
                         </span>
                         <input
-                          type={passwordVisibility.password ? "text" : "password"}
+                          id="password"
                           name="password"
-                          value={formData.password}
-                          onChange={handleInputChange}
+                          type={passwordVisibility.password ? "text" : "password"}
                           className="form-control border-start-0 pass-input ps-2"
                           required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
                           style={{ height: "48px" }}
+                          aria-required="true"
                         />
-                        <span
-                          className={`input-group-text toggle-password ${passwordVisibility.password ? "ti-eye" : "ti-eye-off"} cursor-pointer`}
+                        <button
+                          type="button"
+                          className="input-group-text bg-white border-start-0"
                           onClick={() => togglePasswordVisibility("password")}
-                        ></span>
+                          aria-label={passwordVisibility.password ? "Hide password" : "Show password"}
+                        >
+                          {passwordVisibility.password ? <EyeOff /> : <Eye />}
+                        </button>
                       </div>
                     </div>
+
+                    {/* Remember + Forgot */}
                     <div className="d-flex align-items-center justify-content-between mb-4">
-                      <div className="d-flex align-items-center">
-                        <div className="form-check">
-                          <input
-                            className="form-check-input"
-                            id="remember_me"
-                            type="checkbox"
-                          />
-                          <label
-                            htmlFor="remember_me"
-                            className="form-check-label text-body"
-                          >
-                            Remember Me
-                          </label>
-                        </div>
+                      <div className="form-check">
+                        <input className="form-check-input" id="remember_me" type="checkbox" />
+                        <label htmlFor="remember_me" className="form-check-label text-body">
+                          Remember Me
+                        </label>
                       </div>
                       <div className="text-end">
                         <Link
-                          to={all_routes.forgotPassword}
+                          to={(all_routes as any)?.forgotPassword || "#"}
                           className="text-primary text-decoration-none"
                         >
                           Forgot Password?
                         </Link>
                       </div>
                     </div>
+
+                    {/* Submit */}
                     <div className="mb-3">
                       <button
                         type="submit"
                         className="btn btn-primary btn-lg w-100 btn-login py-2 fw-medium"
                         style={{ borderRadius: "8px" }}
+                        disabled={isSubmitting}
                       >
-                        Sign In
+                        {isSubmitting ? (
+                          <>
+                            <span
+                              className="spinner-border spinner-border-sm me-2"
+                              role="status"
+                              aria-hidden="true"
+                            ></span>
+                            Signing In...
+                          </>
+                        ) : (
+                          "Sign In"
+                        )}
                       </button>
                     </div>
+
                     <div className="position-relative my-4">
                       <hr className="my-4" />
                       <div className="position-absolute top-50 start-50 translate-middle px-3 bg-white">
                         <span className="text-muted small">MediSearch</span>
                       </div>
                     </div>
-                  
-                 
                   </form>
                 </div>
+              </div>
+
+              {/* Footer / Branding (optional) */}
+              <div className="text-center mt-3 small text-muted">
+                Need an account? <Link to={(all_routes as any)?.register || "#"}>Contact admin</Link>
               </div>
             </div>
           </div>
@@ -183,7 +240,7 @@ const Login = () => {
       </div>
       {/* End Content */}
     </>
-  )
-}
+  );
+};
 
 export default Login;

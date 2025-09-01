@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// src/pages/new/InsuranceSearch.tsx
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
 import PageMeta from "../../components/PageMeta";
+import debounce from "debounce";
+import api from "../../api/publicApi";
 
-/** Types (aligned with your snippet) */
+/** ===== Types ===== */
 interface BinModel {
   id: number;
   name?: string;
@@ -37,88 +40,10 @@ interface Prescription {
   drugName?: string;
 }
 
-/* ===================== MOCK DATA ===================== */
-const MOCK_BINS: BinModel[] = [
-  { id: 1, name: "Optum", bin: "610011", helpDeskNumber: "800-555-0001" },
-  { id: 2, name: "Medi-Cal", bin: "610205", helpDeskNumber: "800-555-0002" },
-  { id: 3, name: "Caremark", bin: "004336", helpDeskNumber: "800-555-0003" },
-];
+const PAGE_SIZE = 20;
 
-const MOCK_PCNS_BY_BIN: Record<number, PcnModel[]> = {
-  1: [
-    { id: 11, pcn: "OPT", insuranceId: 1 },
-    { id: 12, pcn: "OPT-RX", insuranceId: 1 },
-  ],
-  2: [
-    { id: 21, pcn: "Medi-Cal", insuranceId: 2 },
-    { id: 22, pcn: "MEDI-RX", insuranceId: 2 },
-  ],
-  3: [
-    { id: 31, pcn: "CMK", insuranceId: 3 },
-    { id: 32, pcn: "CMK-RX", insuranceId: 3 },
-  ],
-};
-
-const MOCK_RX_BY_PCN: Record<number, RxGroupModel[]> = {
-  11: [
-    { id: 111, rxGroup: "OPT-GOLD", insurancePCNId: 11 },
-    { id: 112, rxGroup: "OPT-SILVER", insurancePCNId: 11 },
-  ],
-  21: [
-    { id: 211, rxGroup: "Medi-Cal", insurancePCNId: 21 },
-    { id: 212, rxGroup: "Medi-Cal Plus", insurancePCNId: 21 },
-  ],
-  31: [
-    { id: 311, rxGroup: "CMK-STD", insurancePCNId: 31 },
-    { id: 312, rxGroup: "CMK-PLUS", insurancePCNId: 31 },
-  ],
-  12: [{ id: 121, rxGroup: "OPT-RX", insurancePCNId: 12 }],
-  22: [{ id: 221, rxGroup: "MEDI-RX", insurancePCNId: 22 }],
-  32: [{ id: 321, rxGroup: "CMK-RX", insurancePCNId: 32 }],
-};
-
-// a small DB with multiple NDCs per drug name (enough to paginate)
-const DRUG_NAMES = [
-  "Metformin", "Atorvastatin", "Lisinopril", "Amlodipine", "Losartan",
-  "Levothyroxine", "Omeprazole", "Gabapentin", "Hydrochlorothiazide",
-  "Simvastatin", "Amoxicillin", "Clopidogrel", "Rosuvastatin",
-  "Sertraline", "Montelukast", "Pantoprazole", "Escitalopram",
-  "Duloxetine", "Fluoxetine", "Warfarin",
-];
-
-function genDrug(id: number, name: string): DrugModel {
-  const strength = `${(id % 4 ? 10 : 5) + (id % 7) * 5} mg`;
-  const form = ["Tab", "Cap", "Sol"][id % 3];
-  const drugClassId = (id % 7) + 1;
-  const ndc = `${String(10000 + id)}-${String(100 + (id % 90))}-${String(1 + (id % 5))}`;
-  return {
-    id,
-    name,
-    ndc,
-    form,
-    strength,
-    drugClassId,
-    drugClass: `Class ${drugClassId}`,
-    acq: +(2 + (id % 10) * 0.7).toFixed(2),
-    awp: +(8 + (id % 10) * 1.2).toFixed(2),
-    rxcui: 100000 + id,
-  };
-}
-
-const ALL_DRUGS_DB: DrugModel[] = Array.from({ length: 120 }).map((_, i) => {
-  const name = DRUG_NAMES[i % DRUG_NAMES.length];
-  return genDrug(i + 1, name);
-});
-
-// mock net-price by (ndc + rxGroup) — deterministic but simple
-function mockNet(ndc: string, rxGroupId: number): number {
-  const hash = ndc.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
-  return +((hash % 120) / 10 + (rxGroupId % 7)).toFixed(2); // e.g., $5.37 .. $18.9
-}
-
-/* ===================== COMPONENT ===================== */
 const InsuranceSearch: React.FC = () => {
-  // BIN → PCN → RxGroup
+  /** ======== BIN → PCN → Rx Group ======== */
   const [binQuery, setBinQuery] = useState("");
   const [binSuggestions, setBinSuggestions] = useState<BinModel[]>([]);
   const [showBinSuggestions, setShowBinSuggestions] = useState(false);
@@ -142,35 +67,24 @@ const InsuranceSearch: React.FC = () => {
   }, [rxGroups, rxGroupSearchQuery]);
   const [selectedRxGroup, setSelectedRxGroup] = useState<RxGroupModel | null>(null);
 
-  // drugs & ndc (with infinite scroll)
+  /** ======== Drug & NDC (API) ======== */
   const [limitSearch, setLimitSearch] = useState(true);
   const [drugSearchQuery, setDrugSearchQuery] = useState("");
   const [showDrugSuggestions, setShowDrugSuggestions] = useState(false);
-  const [suggestedDrugs, setSuggestedDrugs] = useState<DrugModel[]>([]);
+  const [drugs, setDrugs] = useState<DrugModel[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const drugDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [isLoadingDrugs, setIsLoadingDrugs] = useState(false);
 
+  const [selectedDrug, setSelectedDrug] = useState<DrugModel | null>(null);
   const [ndcList, setNdcList] = useState<string[]>([]);
   const [ndcSearchQuery, setNdcSearchQuery] = useState("");
   const [showNdcSuggestions, setShowNdcSuggestions] = useState(false);
-  const filteredNdcList = useMemo(() => {
-    const q = ndcSearchQuery.toLowerCase();
-    return q ? ndcList.filter(n => n.toLowerCase().includes(q)) : ndcList;
-  }, [ndcList, ndcSearchQuery]);
-
-  const [selectedDrug, setSelectedDrug] = useState<DrugModel | null>(null);
   const [selectedNdc, setSelectedNdc] = useState("");
 
-  // details preview (mock)
-  const details: Prescription | null = useMemo(() => {
-    if (!selectedNdc || !selectedRxGroup) return null;
-    return {
-      ndc: selectedNdc,
-      drugName: selectedDrug?.name,
-      net: mockNet(selectedNdc, selectedRxGroup.id),
-    };
-  }, [selectedNdc, selectedRxGroup, selectedDrug]);
+  /** ======== Details (GET /drug/GetDetails) ======== */
+  const [netDetails, setNetDetails] = useState<Prescription | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const hideAllSuggestions = () => {
     setShowBinSuggestions(false);
@@ -180,154 +94,255 @@ const InsuranceSearch: React.FC = () => {
     setShowNdcSuggestions(false);
   };
 
-  /* ------- BIN search (mock) ------- */
-  useEffect(() => {
-    if (!binQuery.trim()) {
-      setBinSuggestions([]);
-      setShowBinSuggestions(false);
-      return;
-    }
-    const q = binQuery.toLowerCase();
-    const list = MOCK_BINS.filter(
-      b => b.bin.includes(binQuery) || (b.name ?? "").toLowerCase().includes(q)
-    );
-    setBinSuggestions(list);
-    setShowBinSuggestions(true);
-  }, [binQuery]);
+  /** ======== BIN search (API via Option A client) ======== */
+  const debouncedBinSearch = useCallback(
+    debounce(async (text: string) => {
+      if (!text.trim()) {
+        setBinSuggestions([]);
+        setShowBinSuggestions(false);
+        return;
+      }
+      try {
+        setApiError(null);
+        const { data } = await api.get<BinModel[]>(
+          `/drug/GetInsurancesBinsByName?bin=${encodeURIComponent(text)}`
+        );
+        setBinSuggestions(Array.isArray(data) ? data : []);
+        setShowBinSuggestions(true);
+      } catch (e: any) {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setShowBinSuggestions(false);
+          setApiError("You need to log in to see insurance data.");
+        } else {
+          setApiError("Failed to load BIN suggestions.");
+        }
+      }
+    }, 300),
+    []
+  );
 
-  const onPickBin = (bin: BinModel) => {
+  useEffect(() => {
+    debouncedBinSearch(binQuery);
+  }, [binQuery, debouncedBinSearch]);
+
+  const onPickBin = async (bin: BinModel) => {
     setSelectedBin(bin);
-    setBinQuery(`${bin.name ?? ""} ${bin.name ? " - " : ""}${bin.bin}`);
+    setBinQuery(`${bin.name ?? ""}${bin.name ? " - " : ""}${bin.bin}`);
     setShowBinSuggestions(false);
 
     // reset downstream
-    const pcns = MOCK_PCNS_BY_BIN[bin.id] ?? [];
-    setPcnList(pcns);
+    setPcnList([]);
     setSelectedPcn(null);
-
     setRxGroups([]);
     setSelectedRxGroup(null);
-
-    setDrugSearchQuery("");
-    setSuggestedDrugs([]);
-    setCurrentPage(1);
-
+    setDrugs([]);
     setSelectedDrug(null);
+    setDrugSearchQuery("");
     setNdcList([]);
     setSelectedNdc("");
     setNdcSearchQuery("");
+
+    try {
+      setApiError(null);
+      const { data } = await api.get<PcnModel[]>(
+        `/drug/GetInsurancesPcnByBinId?binId=${bin.id}`
+      );
+      setPcnList(Array.isArray(data) ? data : []);
+      // auto-pick Medi-Cal first PCN if present (your previous behavior)
+      if (bin.name === "Medi-Cal" && data?.[0]) {
+        setSelectedPcn(data[0]);
+        setPcnSearchQuery(data[0].pcn);
+        await onPickPcn(data[0]);
+      }
+    } catch (e: any) {
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        setApiError("You need to log in to see PCNs for this BIN.");
+      } else {
+        setApiError("Failed to load PCNs.");
+      }
+    }
   };
 
-  /* ------- PCN ------- */
-  const onPickPcn = (pcn: PcnModel) => {
+  /** ======== PCN ======== */
+  const onPickPcn = async (pcn: PcnModel) => {
     setSelectedPcn(pcn);
     setPcnSearchQuery(pcn.pcn);
     setShowPcnSuggestions(false);
 
-    const rxs = MOCK_RX_BY_PCN[pcn.id] ?? [];
-    setRxGroups(rxs);
+    // reset downstream
+    setRxGroups([]);
     setSelectedRxGroup(null);
-
-    setDrugSearchQuery("");
-    setSuggestedDrugs([]);
-    setCurrentPage(1);
-
+    setDrugs([]);
     setSelectedDrug(null);
+    setDrugSearchQuery("");
     setNdcList([]);
     setSelectedNdc("");
     setNdcSearchQuery("");
+
+    try {
+      setApiError(null);
+      const { data } = await api.get<RxGroupModel[]>(
+        `/drug/GetInsurancesRxByPcnId?pcnId=${pcn.id}`
+      );
+      setRxGroups(Array.isArray(data) ? data : []);
+      // auto-pick first RxGroup for Medi-Cal PCN
+      if (pcn.pcn === "Medi-Cal" && data?.[0]) {
+        setSelectedRxGroup(data[0]);
+        setRxGroupSearchQuery(data[0].rxGroup);
+      }
+    } catch (e: any) {
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        setApiError("You need to log in to see Rx Groups.");
+      } else {
+        setApiError("Failed to load Rx Groups.");
+      }
+    }
   };
 
-  /* ------- Rx Group ------- */
+  /** ======== Rx Group ======== */
   const onPickRx = (rx: RxGroupModel) => {
     setSelectedRxGroup(rx);
     setRxGroupSearchQuery(rx.rxGroup);
     setShowRxGroupSuggestions(false);
 
-    setDrugSearchQuery("");
-    setSuggestedDrugs([]);
-    setCurrentPage(1);
-
+    // reset drug/ndc
+    setDrugs([]);
     setSelectedDrug(null);
+    setDrugSearchQuery("");
     setNdcList([]);
     setSelectedNdc("");
     setNdcSearchQuery("");
   };
 
-  /* ------- Drug search + pagination (mock) ------- */
-  const recomputeSuggestions = (page = 1) => {
-    const q = drugSearchQuery.toLowerCase();
-
-    // base: filter by text
-    let pool = ALL_DRUGS_DB.filter(d => d.name.toLowerCase().includes(q));
-
-    // if limitSearch ON, further "simulate coverage" by ids
-    if (limitSearch) {
-      if (selectedRxGroup) {
-        const m = selectedRxGroup.id % 3;
-        pool = pool.filter(d => d.drugClassId % 3 === m);
-      } else if (selectedPcn) {
-        const m = selectedPcn.id % 2;
-        pool = pool.filter(d => d.drugClassId % 2 === m);
-      } else if (selectedBin) {
-        const m = selectedBin.id % 5;
-        pool = pool.filter(d => d.drugClassId % 5 === m);
+  /** ======== Drug search (API + pagination) ======== */
+  const fetchDrugsPage = useCallback(
+    async (page: number, append = false) => {
+      if (!drugSearchQuery.trim()) {
+        setDrugs([]);
+        setCurrentPage(1);
+        return;
       }
-    }
 
-    // unique by name for suggestions
-    const uniqueByName = Array.from(new Map(pool.map(d => [d.name, d])).values());
+      let url = "";
+      if (limitSearch) {
+        if (selectedRxGroup) {
+          url = `/drug/GetDrugsByInsuranceNamePagintated?insurance=${encodeURIComponent(
+            selectedRxGroup.rxGroup
+          )}&drugName=${encodeURIComponent(drugSearchQuery)}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
+        } else if (selectedPcn) {
+          url = `/drug/GetDrugsByPCNPagintated?insurance=${encodeURIComponent(
+            selectedPcn.pcn
+          )}&drugName=${encodeURIComponent(drugSearchQuery)}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
+        } else if (selectedBin) {
+          url = `/drug/GetDrugsByBINPagintated?insurance=${encodeURIComponent(
+            selectedBin.bin
+          )}&drugName=${encodeURIComponent(drugSearchQuery)}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
+        }
+      } else {
+        url = `/drug/searchByName?name=${encodeURIComponent(
+          drugSearchQuery
+        )}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
+      }
 
-    const start = (page - 1) * PAGE_SIZE;
-    const pageSlice = uniqueByName.slice(start, start + PAGE_SIZE);
+      if (!url) return;
+      try {
+        setApiError(null);
+        setIsLoadingDrugs(true);
+        const { data } = await api.get<DrugModel[]>(url);
+        const payload = Array.isArray(data) ? data : [];
+        setDrugs(prev => (append ? [...prev, ...payload] : payload));
+        setCurrentPage(page);
+      } catch (e: any) {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setApiError("You need to log in to search drugs.");
+        } else {
+          setApiError("Failed to load drugs.");
+        }
+      } finally {
+        setIsLoadingDrugs(false);
+      }
+    },
+    [drugSearchQuery, limitSearch, selectedRxGroup, selectedPcn, selectedBin]
+  );
 
-    if (page === 1) setSuggestedDrugs(pageSlice);
-    else setSuggestedDrugs(prev => [...prev, ...pageSlice]);
-  };
+  const debouncedDrugSearch = useCallback(
+    debounce(() => {
+      if (!drugSearchQuery.trim()) {
+        setDrugs([]);
+        setCurrentPage(1);
+        return;
+      }
+      fetchDrugsPage(1, false);
+      setShowDrugSuggestions(true);
+    }, 300),
+    [fetchDrugsPage, drugSearchQuery]
+  );
 
   useEffect(() => {
-    if (!drugSearchQuery.trim()) {
-      setSuggestedDrugs([]);
-      setCurrentPage(1);
-      return;
-    }
-    setCurrentPage(1);
-    recomputeSuggestions(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drugSearchQuery, limitSearch, selectedBin, selectedPcn, selectedRxGroup]);
+    debouncedDrugSearch();
+  }, [drugSearchQuery, limitSearch, selectedBin, selectedPcn, selectedRxGroup, debouncedDrugSearch]);
 
   // infinite scroll
   useEffect(() => {
-    const el = dropdownRef.current;
+    const el = drugDropdownRef.current;
     if (!el) return;
     const onScroll = (e: Event) => {
       const target = e.currentTarget as HTMLElement;
       const atBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 4;
-      if (atBottom && suggestedDrugs.length >= PAGE_SIZE * currentPage) {
-        const next = currentPage + 1;
-        setCurrentPage(next);
-        recomputeSuggestions(next);
+      if (atBottom && !isLoadingDrugs && drugs.length >= PAGE_SIZE * currentPage) {
+        fetchDrugsPage(currentPage + 1, true);
       }
     };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suggestedDrugs, currentPage]);
+  }, [drugs, currentPage, isLoadingDrugs, fetchDrugsPage]);
 
-  const filterDrugNames = suggestedDrugs; // already unique by name
+  const filterDrugNames = useMemo(
+    () => Array.from(new Map(drugs.map(d => [d.name, d])).values()),
+    [drugs]
+  );
 
   const onPickDrug = (drug: DrugModel) => {
     setSelectedDrug(drug);
 
-    // collect all NDCs for this name from the whole DB
-    const ndcs = Array.from(
-      new Set(ALL_DRUGS_DB.filter(d => d.name === drug.name).map(d => d.ndc))
-    );
+    // gather NDCs for this name from current results
+    const ndcs = Array.from(new Set(drugs.filter(d => d.name === drug.name).map(d => d.ndc)));
     setNdcList(ndcs);
     setSelectedNdc(ndcs[0] ?? "");
     setNdcSearchQuery(ndcs[0] ?? "");
     setShowDrugSuggestions(false);
   };
+
+  /** ======== Fetch Details when NDC + RxGroup ready ======== */
+  useEffect(() => {
+    (async () => {
+      if (!selectedNdc || !selectedRxGroup) {
+        setNetDetails(null);
+        return;
+      }
+      try {
+        setApiError(null);
+        const { data } = await api.get<Prescription>(
+          `/drug/GetDetails?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedRxGroup.id}`
+        );
+        setNetDetails(data ?? null);
+      } catch (e: any) {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setNetDetails(null);
+          setApiError("You need to log in to view net price.");
+        } else {
+          setNetDetails(null);
+          setApiError("Failed to load drug details.");
+        }
+      }
+    })();
+  }, [selectedNdc, selectedRxGroup]);
+
+  /** ======== NDC ======== */
+  const filteredNdcList = useMemo(() => {
+    const q = ndcSearchQuery.toLowerCase();
+    return q ? ndcList.filter(n => n.toLowerCase().includes(q)) : ndcList;
+  }, [ndcList, ndcSearchQuery]);
 
   const onPickNdc = (ndc: string) => {
     setSelectedNdc(ndc);
@@ -335,7 +350,7 @@ const InsuranceSearch: React.FC = () => {
     setShowNdcSuggestions(false);
   };
 
-  /* ------- clear all ------- */
+  /** ======== Clear All + click-outside ======== */
   const clearAll = () => {
     setBinQuery("");
     setBinSuggestions([]);
@@ -353,7 +368,7 @@ const InsuranceSearch: React.FC = () => {
     setSelectedRxGroup(null);
 
     setDrugSearchQuery("");
-    setSuggestedDrugs([]);
+    setDrugs([]);
     setShowDrugSuggestions(false);
     setCurrentPage(1);
 
@@ -361,9 +376,11 @@ const InsuranceSearch: React.FC = () => {
     setNdcList([]);
     setSelectedNdc("");
     setNdcSearchQuery("");
+    setNetDetails(null);
+
+    setApiError(null);
   };
 
-  // click outside to close popovers
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
@@ -375,8 +392,7 @@ const InsuranceSearch: React.FC = () => {
 
   return (
     <div className="container py-4">
-      <PageMeta title="Insurance Search" description="Search by BIN / PCN / Rx Group using mock data." />
-  
+      <PageMeta title="Insurance Search" description="Search by BIN / PCN / Rx Group (live API)." />
       <div className="d-flex flex-column align-items-center text-center mb-4">
         <AutoBreadcrumb title="Insurance Search" />
       </div>
@@ -390,10 +406,11 @@ const InsuranceSearch: React.FC = () => {
                 Insurance Search
               </h4>
               <p className="mb-0 opacity-75 mt-2">
-                Search for drugs based on BIN, PCN, and Rx Group criteria — all mock data until we connect the API.
+                Search for drugs based on BIN, PCN, and Rx Group — now wired to the API.
+                {apiError && <span className="ms-2 text-warning">{apiError}</span>}
               </p>
             </div>
-            
+
             <div className="card-body p-5">
               {/* Toggle limit search */}
               <div className="d-flex align-items-center justify-content-between bg-light rounded-3 p-3 mb-4">
@@ -407,7 +424,10 @@ const InsuranceSearch: React.FC = () => {
                     className="form-check-input"
                     type="checkbox"
                     checked={limitSearch}
-                    onChange={() => { clearAll(); setLimitSearch(!limitSearch); }}
+                    onChange={() => {
+                      clearAll();
+                      setLimitSearch(!limitSearch);
+                    }}
                     style={{ width: "2.5em" }}
                   />
                 </div>
@@ -428,13 +448,13 @@ const InsuranceSearch: React.FC = () => {
                     className="form-control border-start-0 ps-2"
                     placeholder="e.g., 610011 or Optum"
                     value={binQuery}
-                    onChange={e => setBinQuery(e.target.value)}
+                    onChange={(e) => setBinQuery(e.target.value)}
                     onFocus={() => setShowBinSuggestions(true)}
                     style={{ height: "52px" }}
                   />
                   {binQuery && (
-                    <button 
-                      className="btn btn-outline-secondary d-flex align-items-center" 
+                    <button
+                      className="btn btn-outline-secondary d-flex align-items-center"
                       onClick={clearAll}
                       style={{ height: "52px" }}
                     >
@@ -450,7 +470,7 @@ const InsuranceSearch: React.FC = () => {
                     role="listbox"
                     aria-label="BIN suggestions"
                   >
-                    {binSuggestions.map(b => (
+                    {binSuggestions.map((b) => (
                       <button
                         key={b.id}
                         className="list-group-item list-group-item-action border-0 py-3 px-4"
@@ -482,7 +502,7 @@ const InsuranceSearch: React.FC = () => {
                       className="form-control border-start-0 ps-2"
                       placeholder="e.g., MEDI-RX…"
                       value={pcnSearchQuery}
-                      onChange={e => setPcnSearchQuery(e.target.value)}
+                      onChange={(e) => setPcnSearchQuery(e.target.value)}
                       onFocus={() => setShowPcnSuggestions(true)}
                       style={{ height: "52px" }}
                     />
@@ -494,7 +514,7 @@ const InsuranceSearch: React.FC = () => {
                       role="listbox"
                       aria-label="PCN suggestions"
                     >
-                      {filteredPcnList.map(p => (
+                      {filteredPcnList.map((p) => (
                         <button
                           key={p.id}
                           className="list-group-item list-group-item-action border-0 py-3 px-4"
@@ -524,7 +544,7 @@ const InsuranceSearch: React.FC = () => {
                       className="form-control border-start-0 ps-2"
                       placeholder="e.g., Medi-Cal Plus…"
                       value={rxGroupSearchQuery}
-                      onChange={e => setRxGroupSearchQuery(e.target.value)}
+                      onChange={(e) => setRxGroupSearchQuery(e.target.value)}
                       onFocus={() => setShowRxGroupSuggestions(true)}
                       style={{ height: "52px" }}
                     />
@@ -536,7 +556,7 @@ const InsuranceSearch: React.FC = () => {
                       role="listbox"
                       aria-label="Rx Group suggestions"
                     >
-                      {filteredRxGroupList.map(rx => (
+                      {filteredRxGroupList.map((rx) => (
                         <button
                           key={rx.id}
                           className="list-group-item list-group-item-action border-0 py-3 px-4"
@@ -550,7 +570,7 @@ const InsuranceSearch: React.FC = () => {
                 </div>
               )}
 
-              {/* Drug search (with infinite scroll) */}
+              {/* Drug search */}
               {(selectedBin?.bin ?? "").length > 0 && (
                 <div className="mb-4 position-relative js-suggest">
                   <label className="form-label fw-medium text-dark mb-2">
@@ -566,20 +586,20 @@ const InsuranceSearch: React.FC = () => {
                       className="form-control border-start-0 ps-2"
                       placeholder="e.g., Metformin"
                       value={drugSearchQuery}
-                      onChange={e => setDrugSearchQuery(e.target.value)}
+                      onChange={(e) => setDrugSearchQuery(e.target.value)}
                       onFocus={() => setShowDrugSuggestions(true)}
                       style={{ height: "52px" }}
                     />
                   </div>
                   {showDrugSuggestions && filterDrugNames.length > 0 && (
                     <div
-                      ref={dropdownRef}
+                      ref={drugDropdownRef}
                       className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                       style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
                       role="listbox"
                       aria-label="Drug suggestions"
                     >
-                      {filterDrugNames.map(d => (
+                      {filterDrugNames.map((d) => (
                         <button
                           key={d.id}
                           className="list-group-item list-group-item-action border-0 py-3 px-4"
@@ -591,7 +611,7 @@ const InsuranceSearch: React.FC = () => {
                           </div>
                         </button>
                       ))}
-                      {filterDrugNames.length >= PAGE_SIZE * currentPage && (
+                      {(isLoadingDrugs || filterDrugNames.length >= PAGE_SIZE * currentPage) && (
                         <div className="text-center small text-muted py-3 border-top">
                           <i className="ti ti-loader me-1"></i>
                           Loading more…
@@ -602,7 +622,7 @@ const InsuranceSearch: React.FC = () => {
                 </div>
               )}
 
-              {/* NDC search */}
+              {/* NDC */}
               {ndcList.length > 0 && (
                 <div className="mb-4 position-relative js-suggest">
                   <label className="form-label fw-medium text-dark mb-2">
@@ -618,7 +638,7 @@ const InsuranceSearch: React.FC = () => {
                       className="form-control border-start-0 ps-2"
                       placeholder="Type to filter NDCs…"
                       value={ndcSearchQuery}
-                      onChange={e => setNdcSearchQuery(e.target.value)}
+                      onChange={(e) => setNdcSearchQuery(e.target.value)}
                       onFocus={() => setShowNdcSuggestions(true)}
                       style={{ height: "52px" }}
                     />
@@ -647,86 +667,42 @@ const InsuranceSearch: React.FC = () => {
                 </div>
               )}
 
-              {/* Preview (mock) */}
-              {details && (
+              {/* Preview */}
+              {selectedDrug && selectedNdc && (
                 <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
                   <div className="bg-white p-3 rounded-3">
                     <i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" />
                   </div>
                   <div>
                     <div className="fw-semibold">Estimated Net Price</div>
-                    <div className="fs-5 fw-bold">{details.net != null ? `$${details.net}` : "N/A"}</div>
+                    <div className="fs-5 fw-bold">
+                      {netDetails?.net != null ? `$${netDetails.net}` : (apiError ? "—" : "…")}
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Action */}
-              {selectedDrug && selectedNdc && (
+              {selectedDrug && selectedNdc && selectedRxGroup && (
                 <button
                   type="button"
                   className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
-                  data-bs-toggle="modal"
-                  data-bs-target="#insDetailsModal"
+                  onClick={() => {
+                    try {
+                      // persist selection for details page
+                      localStorage.setItem("selectedRx", selectedRxGroup.rxGroup);
+                      if (selectedPcn?.pcn) localStorage.setItem("selectedPcn", selectedPcn.pcn);
+                      if (selectedBin?.bin) localStorage.setItem("selectedBin", selectedBin.bin);
+                    } catch {}
+                    window.location.href = `/drug/${selectedDrug.id}?ndc=${encodeURIComponent(
+                      selectedNdc
+                    )}&insuranceId=${selectedRxGroup.id}`;
+                  }}
                 >
                   <i className="ti ti-file-text me-2"></i>
                   View Drug Details
                 </button>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal with all selections (mock) */}
-      <div className="modal fade" id="insDetailsModal" tabIndex={-1} aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content border-0 shadow-lg">
-            <div className="modal-header bg-primary text-white">
-              <h6 className="modal-title">
-                <i className="ti ti-info-circle me-2"></i>
-                Drug Details (Mock)
-              </h6>
-              <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" />
-            </div>
-            <div className="modal-body">
-              <div className="row mb-3">
-                <div className="col-6">
-                  <div className="text-muted small">BIN:</div>
-                  <div className="fw-semibold">{selectedBin ? `${selectedBin.name ?? ""}${selectedBin.name ? " - " : ""}${selectedBin.bin}` : "-"}</div>
-                </div>
-                <div className="col-6">
-                  <div className="text-muted small">PCN:</div>
-                  <div className="fw-semibold">{selectedPcn?.pcn ?? "-"}</div>
-                </div>
-              </div>
-              <div className="row mb-3">
-                <div className="col-6">
-                  <div className="text-muted small">Rx Group:</div>
-                  <div className="fw-semibold">{selectedRxGroup?.rxGroup ?? "-"}</div>
-                </div>
-                <div className="col-6">
-                  <div className="text-muted small">Drug:</div>
-                  <div className="fw-semibold">{selectedDrug?.name ?? "-"}</div>
-                </div>
-              </div>
-              <div className="row mb-3">
-                <div className="col-6">
-                  <div className="text-muted small">NDC:</div>
-                  <div className="fw-semibold">{selectedNdc || "-"}</div>
-                </div>
-                <div className="col-6">
-                  <div className="text-muted small">Net Price:</div>
-                  <div className="fw-semibold">{details?.net != null ? `$${details.net}` : "-"}</div>
-                </div>
-              </div>
-              <hr />
-              <div className="small text-muted">
-                <i className="ti ti-info-circle me-1"></i>
-                All values are mock data until the API is connected.
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-light" data-bs-dismiss="modal">Close</button>
             </div>
           </div>
         </div>
