@@ -307,7 +307,8 @@ const InsuranceSearch: React.FC = () => {
 
       <div className="row justify-content-center">
         <div className="col-12 col-lg-10 col-xl-8">
-          <div className="card shadow-lg border-0 rounded-4 overflow-hidden" style={{ overflow: "visible" }}>
+          {/* allow dropdowns to overflow */}
+          <div className="card shadow-lg border-0 rounded-4 overflow-visible" style={{ overflow: "visible" }}>
             <div className="card-header text-center py-4 px-5">
               <h4 className="mb-1 fw-semibold">
                 <i className="ti ti-building-bank me-2"></i>
@@ -338,7 +339,7 @@ const InsuranceSearch: React.FC = () => {
                 </div>
               </div>
 
-              {/* Inputs grid */}
+              {/* Inputs grid (all visible; disabled until ready) */}
               <div className="row g-4">
                 {/* BIN */}
                 <div className="col-12 col-lg-6">
@@ -429,7 +430,7 @@ const InsuranceSearch: React.FC = () => {
                       Search for Rx Group
                     </label>
                     <div className="input-group input-group-lg">
-                      <span className="input-group-text bg-light border-end-0"><i className="ti 	ti-search text-primary" /></span>
+                      <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
                       <input
                         type="text"
                         className="form-control border-start-0 ps-2"
@@ -591,6 +592,7 @@ const InsuranceSearch: React.FC = () => {
         @media (max-width: 991.98px) { .mid { margin-left: 0; } }
         .breadcrumb-xl :where(h1, h2, h3, .breadcrumb-title) { font-size: 2.25rem !important; }
         @media (min-width: 992px) { .breadcrumb-xl :where(h1, h2, h3, .breadcrumb-title) { font-size: 3rem !important; } }
+        .overflow-visible { overflow: visible !important; }
       `}</style>
     </div>
   );

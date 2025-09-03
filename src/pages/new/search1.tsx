@@ -23,7 +23,7 @@ try {
   /* no-op */
 }
 
-/** ====== Types (unchanged) ====== */
+/** ===== Types (unchanged) ===== */
 type Drug = {
   id: number;
   name: string;
@@ -37,7 +37,6 @@ type Prescription = {
   drugClassId?: number;
 };
 
-/** ====== Component ====== */
 const DrugSearch: React.FC = () => {
   /** Search + suggestions (from API) */
   const [query, setQuery] = useState("");
@@ -48,7 +47,7 @@ const DrugSearch: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // Anchor ref for positioning the floating suggestions overlay
+  // Anchors for the floating suggestions
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -57,12 +56,10 @@ const DrugSearch: React.FC = () => {
   const [ndcList, setNdcList] = useState<string[]>([]);
   const [selectedNdc, setSelectedNdc] = useState("");
   const [insList, setInsList] = useState<DrugInsuranceInfo[]>([]);
-  const [selectedIns, setSelectedIns] = useState<DrugInsuranceInfo | null>(
-    null
-  );
+  const [selectedIns, setSelectedIns] = useState<DrugInsuranceInfo | null>(null);
   const [details, setDetails] = useState<Prescription | null>(null);
 
-  /** ====== Debounced API search (unchanged) ====== */
+  /** ===== Debounced API search (unchanged) ===== */
   const debouncedSearch = useCallback(
     debounce(async (text: string, page: number) => {
       if (!text || text.trim().length < 1) {
@@ -74,9 +71,7 @@ const DrugSearch: React.FC = () => {
       try {
         setIsLoading(true);
         const { data } = await axiosInstance.get(
-          `/drug/searchByName?name=${encodeURIComponent(
-            text
-          )}&pageNumber=${page}&pageSize=20`
+          `/drug/searchByName?name=${encodeURIComponent(text)}&pageNumber=${page}&pageSize=20`
         );
         setSuggestions((prev) => (page === 1 ? data : [...prev, ...data]));
         setShowSuggestions(true);
@@ -96,48 +91,30 @@ const DrugSearch: React.FC = () => {
     pageRef.current = pageNumber;
   }, [pageNumber]);
 
-  // Split suggestions into Matched (prefix) & Unmatched (others),
-  // and a flat list for keyboard navigation.
+  // Matched/unmatched split + flat array
   const { matched, unmatched, flatSuggestions } = useMemo(() => {
     const q = (query || "").trim().toLowerCase();
-    if (!q) {
-      return {
-        matched: suggestions,
-        unmatched: [],
-        flatSuggestions: suggestions,
-      };
-    }
+    if (!q) return { matched: suggestions, unmatched: [], flatSuggestions: suggestions };
     const m = suggestions.filter((d) => d.name?.toLowerCase().startsWith(q));
     const u = suggestions.filter((d) => !d.name?.toLowerCase().startsWith(q));
     return { matched: m, unmatched: u, flatSuggestions: [...m, ...u] };
   }, [suggestions, query]);
 
-  /**
-   * === Floating suggestions via Portal (prevents clipping) ===
-   */
-  const [overlayStyle, setOverlayStyle] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-
+  /** === Pin the portal dropdown right under the input === */
+  const [overlayStyle, setOverlayStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const computeOverlayPos = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
     setOverlayStyle({
-      top: r.bottom,
-      left: r.left,
+      top: r.bottom + window.scrollY,
+      left: r.left + window.scrollX,
       width: r.width,
     });
   }, []);
-
   useEffect(() => {
-    if (showSuggestions && suggestions.length > 0) {
-      computeOverlayPos();
-    }
+    if (showSuggestions && suggestions.length > 0) computeOverlayPos();
   }, [showSuggestions, suggestions.length, computeOverlayPos]);
-
   useEffect(() => {
     if (!showSuggestions) return;
     const onWin = () => computeOverlayPos();
@@ -166,7 +143,7 @@ const DrugSearch: React.FC = () => {
     return () => el.removeEventListener("scroll", onSuggestionsScroll);
   }, [isLoading, hasMore, query]);
 
-  /** Handlers */
+  /** Handlers (unchanged) */
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
@@ -181,12 +158,8 @@ const DrugSearch: React.FC = () => {
     setSelectedDrug(drug);
     setQuery(drug.name);
     setShowSuggestions(false);
-    // reset dependent state
-    setNdcList([]);
-    setSelectedNdc("");
-    setInsList([]);
-    setSelectedIns(null);
-    setDetails(null);
+    // reset downstream
+    setNdcList([]); setSelectedNdc(""); setInsList([]); setSelectedIns(null); setDetails(null);
     try {
       const { data } = await axiosInstance.get(
         `/drug/getDrugNDCs?name=${encodeURIComponent(drug.name)}`
@@ -199,9 +172,7 @@ const DrugSearch: React.FC = () => {
 
   const handlePickNdc = async (ndc: string) => {
     setSelectedNdc(ndc);
-    setInsList([]);
-    setSelectedIns(null);
-    setDetails(null);
+    setInsList([]); setSelectedIns(null); setDetails(null);
     if (!ndc) return;
     try {
       const { data } = await axiosInstance.get(
@@ -219,14 +190,13 @@ const DrugSearch: React.FC = () => {
     setDetails(null);
   };
 
+  // Fetch details when both NDC + Insurance exist (unchanged)
   useEffect(() => {
     (async () => {
       if (!selectedNdc || !selectedIns) return;
       try {
         const { data } = await axiosInstance.get(
-          `/drug/GetDetails?ndc=${encodeURIComponent(
-            selectedNdc
-          )}&insuranceId=${selectedIns.insuranceId}`
+          `/drug/GetDetails?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedIns.insuranceId}`
         );
         setDetails(data ?? null);
       } catch (e) {
@@ -237,59 +207,47 @@ const DrugSearch: React.FC = () => {
   }, [selectedNdc, selectedIns]);
 
   const clearAll = () => {
-    setQuery("");
-    setShowSuggestions(false);
-    setActiveIndex(-1);
-    setSuggestions([]);
-    setSelectedDrug(null);
-    setNdcList([]);
-    setSelectedNdc("");
-    setInsList([]);
-    setSelectedIns(null);
-    setDetails(null);
-    setPageNumber(1);
-    setHasMore(true);
+    setQuery(""); setShowSuggestions(false); setActiveIndex(-1); setSuggestions([]);
+    setSelectedDrug(null); setNdcList([]); setSelectedNdc("");
+    setInsList([]); setSelectedIns(null); setDetails(null);
+    setPageNumber(1); setHasMore(true);
   };
 
   const viewDrugDetails = () => {
     if (!selectedDrug) return;
-    // keep original localStorage + route contract (insurance/ndc may be empty)
+    // keep original storage contract; insurance/ndc may be empty
     if (selectedIns?.insurance) {
       localStorage.setItem("selectedRx", selectedIns.insurance);
     }
-    localStorage.setItem(
-      "InsuranceId",
-      selectedIns?.insuranceId != null ? String(selectedIns.insuranceId) : ""
-    );
+    localStorage.setItem("InsuranceId", selectedIns?.insuranceId != null ? String(selectedIns.insuranceId) : "");
     localStorage.setItem("DrugId", selectedDrug?.id.toString() ?? "");
     localStorage.setItem("NDCCode", selectedNdc.toString() ?? "");
 
     const url = `/drug-page`;
-    if (navigateFn) {
-      navigateFn(url);
-    } else {
-      window.location.href = url;
-    }
+    if (navigateFn) navigateFn(url);
+    else window.location.href = url;
   };
 
-  /** ====== UI (restyled to match target) ====== */
+  /** ====== UI (all inputs visible by default) ====== */
   return (
-    <div className="container mid min-vh-100  d-flex flex-column justify-content-center py-4">
-      {/* Centered title & breadcrumb */}
+    <div className="container mid min-vh-100 d-flex flex-column justify-content-center py-4">
+      {/* Centered breadcrumb/title like the other page */}
       <div className="d-flex flex-column align-items-center text-center mb-4">
-        <div style={{ fontSize: "2.5rem", fontWeight: 600 }}><AutoBreadcrumb title="Search Medicines" /></div>
+        <div style={{ fontSize: "2.5rem", fontWeight: 600 }}>
+          <AutoBreadcrumb title="Search Medicines" />
+        </div>
       </div>
 
       <div className="row form mt-88 justify-content-center">
         <div className="col-12 col-lg-10 col-xl-8">
-          <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+          <div className="card shadow-lg border-0 rounded-4 overflow-visible">
             <div className="card-header text-center py-4 px-5">
               <h4 className="mb-1 fw-semibold">
-                <i className="ti ti-pill me-2"></i>
+                <i className="ti ti-pill me-2" />
                 Medicine Search
               </h4>
               <p className="mb-0 text-muted">
-                Search by name, then select the NDC and the insurance — connected to the live API.
+                Search by name, then pick NDC and (optionally) insurance — live API.
               </p>
             </div>
 
@@ -314,19 +272,10 @@ const DrugSearch: React.FC = () => {
                     onFocus={() => setShowSuggestions(true)}
                     onKeyDown={(e) => {
                       if (!showSuggestions || flatSuggestions.length === 0) return;
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setActiveIndex((p) => (p + 1 < flatSuggestions.length ? p + 1 : 0));
-                      } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setActiveIndex((p) => (p - 1 >= 0 ? p - 1 : flatSuggestions.length - 1));
-                      } else if (e.key === "Enter" && activeIndex >= 0) {
-                        e.preventDefault();
-                        handlePickDrug(flatSuggestions[activeIndex]);
-                      } else if (e.key === "Escape") {
-                        setShowSuggestions(false);
-                        setActiveIndex(-1);
-                      }
+                      if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex((p) => (p + 1 < flatSuggestions.length ? p + 1 : 0)); }
+                      else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex((p) => (p - 1 >= 0 ? p - 1 : flatSuggestions.length - 1)); }
+                      else if (e.key === "Enter" && activeIndex >= 0) { e.preventDefault(); handlePickDrug(flatSuggestions[activeIndex]); }
+                      else if (e.key === "Escape") { setShowSuggestions(false); setActiveIndex(-1); }
                     }}
                     role="combobox"
                     aria-autocomplete="list"
@@ -347,7 +296,7 @@ const DrugSearch: React.FC = () => {
                   )}
                 </div>
 
-                {/* Floating suggestions via portal (escapes overflow/clip) */}
+                {/* Floating suggestions under the input via portal */}
                 {showSuggestions && suggestions.length > 0 && overlayStyle &&
                   createPortal(
                     <div
@@ -377,17 +326,13 @@ const DrugSearch: React.FC = () => {
                           } border-start border-3 border-success`}
                           onClick={() => handlePickDrug(d)}
                         >
-                          <i className="ti ti-pill me-2"></i>
+                          <i className="ti ti-pill me-2" />
                           {d.name}
                         </button>
                       ))}
 
                       {unmatched.length > 0 && (
-                        <div
-                          className="px-4 py-2 small text-primary bg-light border-top fw-medium"
-                          role="separator"
-                          aria-hidden="true"
-                        >
+                        <div className="px-4 py-2 small text-primary bg-light border-top fw-medium" role="separator" aria-hidden="true">
                           Did you mean?
                         </div>
                       )}
@@ -405,21 +350,19 @@ const DrugSearch: React.FC = () => {
                             }`}
                             onClick={() => handlePickDrug(d)}
                           >
-                            <i className="ti ti-help-circle me-2"></i>
+                            <i className="ti ti-help-circle me-2" />
                             {d.name}
                           </button>
                         );
                       })}
 
-                      {isLoading && (
-                        <div className="px-4 py-2 small text-muted">Loading…</div>
-                      )}
+                      {isLoading && <div className="px-4 py-2 small text-muted">Loading…</div>}
                     </div>,
                     document.body
                   )}
               </div>
 
-              {/* 2) NDC — always visible, disabled until drug is picked */}
+              {/* 2) NDC — ALWAYS visible (disabled until drug picked) */}
               <div className="mb-4">
                 <label htmlFor="ndcSelect" className="form-label fw-medium text-dark mb-2">
                   Select NDC
@@ -441,12 +384,10 @@ const DrugSearch: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                {!selectedDrug && (
-                  <small className="text-muted">Pick a drug to enable this field.</small>
-                )}
+                {!selectedDrug && <small className="text-muted">Pick a drug to enable this field.</small>}
               </div>
 
-              {/* 3) Insurance — always visible, disabled until NDC is picked */}
+              {/* 3) Insurance — ALWAYS visible (disabled until NDC picked) */}
               <div className="mb-4">
                 <label htmlFor="insSelect" className="form-label fw-medium text-dark mb-2">
                   Select Insurance
@@ -468,20 +409,15 @@ const DrugSearch: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                {!selectedNdc && (
-                  <small className="text-muted">Choose NDC to enable insurance list.</small>
-                )}
+                {!selectedNdc && <small className="text-muted">Choose NDC to enable insurance list.</small>}
               </div>
 
-              {/* 4) Net preview */}
+              {/* 4) Net preview (unchanged logic) */}
               <div
                 className={`alert ${details ? "alert-primary" : "alert-light border"} d-flex align-items-center gap-3 p-3 rounded-3 mb-4`}
               >
                 <div className={`p-3 rounded-3 ${details ? "bg-white" : "bg-light"}`}>
-                  <i
-                    className={`ti ti-currency-dollar ${details ? "text-primary" : "text-muted"} fs-4`}
-                    aria-hidden="true"
-                  />
+                  <i className={`ti ti-currency-dollar ${details ? "text-primary" : "text-muted"} fs-4`} aria-hidden="true" />
                 </div>
                 <div>
                   <div className="fw-semibold">Estimated Net Price</div>
@@ -491,10 +427,15 @@ const DrugSearch: React.FC = () => {
                 </div>
               </div>
 
-              {/* 5) Action (now matches original behavior: enabled as soon as a drug is selected) */}
+              {/* 5) Action — enabled as soon as a drug is chosen (insurance optional) */}
               {selectedDrug && (
-                <button type="button" className="btn btn-primary btn-lg w-100 py-3 fw-semibold" onClick={viewDrugDetails}>
-                  <i className="ti ti-file-text me-2"></i>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
+                  onClick={viewDrugDetails}
+                  // no disabled: you said it should work without insurance too
+                >
+                  <i className="ti ti-file-text me-2" />
                   View Drug Details
                 </button>
               )}
@@ -503,12 +444,13 @@ const DrugSearch: React.FC = () => {
         </div>
       </div>
 
-      {/* Local, page-scoped style hook for sidebar offset to center content */}
+      {/* page-scoped styles to match the other page & avoid clipping */}
       <style>{`
         .mid { margin-left: 220px; }
-        .form { margin-top: 88px; }
-        .mt-88 { margin-top: 88px; }
+        .form { margin-top: 80px; }
+        .mt-88 { margin-top: 29px; }
         @media (max-width: 991.98px) { .mid { margin-left: 0; } }
+        .overflow-visible { overflow: visible !important; }
       `}</style>
     </div>
   );

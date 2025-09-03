@@ -1,3 +1,4 @@
+// src/pages/new/InsuranceSearch2.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import debounce from "debounce";
@@ -20,7 +21,13 @@ interface Prescription { net?: number; ndc?: string; drugName?: string; drugClas
 /* ===================== Public API client ===================== */
 const makePublicApi = () => {
   const api = axios.create({ baseURL: BaseUrlLoader.API_BASE_URL, withCredentials: false });
-  api.interceptors.request.use((config) => { if (config.headers) { delete (config.headers as any).Authorization; (config.headers as any).Authorization = undefined; } return config; });
+  api.interceptors.request.use((config) => {
+    if (config.headers) {
+      delete (config.headers as any).Authorization;
+      (config.headers as any).Authorization = undefined;
+    }
+    return config;
+  });
   return api;
 };
 
@@ -36,7 +43,8 @@ const InsuranceSearch2: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      try { await loadConfig(); } catch { /* ignore if already loaded */ } finally { publicApiRef.current = makePublicApi(); setReady(true); }
+      try { await loadConfig(); } catch { /* ignore if already loaded */ }
+      finally { publicApiRef.current = makePublicApi(); setReady(true); }
     })();
   }, []);
 
@@ -52,13 +60,19 @@ const InsuranceSearch2: React.FC = () => {
   const [pcnList, setPcnList] = useState<PcnModel[]>([]);
   const [pcnSearchQuery, setPcnSearchQuery] = useState("");
   const [showPcnSuggestions, setShowPcnSuggestions] = useState(false);
-  const filteredPcnList = useMemo(() => { const q = pcnSearchQuery.toLowerCase(); return q ? pcnList.filter((p) => p.pcn.toLowerCase().includes(q)) : pcnList; }, [pcnList, pcnSearchQuery]);
+  const filteredPcnList = useMemo(() => {
+    const q = pcnSearchQuery.toLowerCase();
+    return q ? pcnList.filter((p) => p.pcn.toLowerCase().includes(q)) : pcnList;
+  }, [pcnList, pcnSearchQuery]);
   const [selectedPcn, setSelectedPcn] = useState<PcnModel | null>(null);
 
   const [rxGroups, setRxGroups] = useState<RxGroupModel[]>([]);
   const [rxGroupSearchQuery, setRxGroupSearchQuery] = useState("");
   const [showRxGroupSuggestions, setShowRxGroupSuggestions] = useState(false);
-  const filteredRxGroupList = useMemo(() => { const q = rxGroupSearchQuery.toLowerCase(); return q ? rxGroups.filter((r) => r.rxGroup.toLowerCase().includes(q)) : rxGroups; }, [rxGroups, rxGroupSearchQuery]);
+  const filteredRxGroupList = useMemo(() => {
+    const q = rxGroupSearchQuery.toLowerCase();
+    return q ? rxGroups.filter((r) => r.rxGroup.toLowerCase().includes(q)) : rxGroups;
+  }, [rxGroups, rxGroupSearchQuery]);
   const [selectedRxGroup, setSelectedRxGroup] = useState<RxGroupModel | null>(null);
 
   // Drug Class search (paginated)
@@ -79,11 +93,19 @@ const InsuranceSearch2: React.FC = () => {
   // details preview
   const [netDetails, setNetDetails] = useState<Prescription | null>(null);
 
-  const hideAllSuggestions = () => { setShowBinSuggestions(false); setShowPcnSuggestions(false); setShowRxGroupSuggestions(false); setShowDrugSuggestions(false); };
+  const hideAllSuggestions = () => {
+    setShowBinSuggestions(false);
+    setShowPcnSuggestions(false);
+    setShowRxGroupSuggestions(false);
+    setShowDrugSuggestions(false);
+  };
 
   // Close popovers on outside click
   useEffect(() => {
-    const onDown = (e: MouseEvent) => { const t = e.target as HTMLElement; if (!t.closest(".js-suggest")) hideAllSuggestions(); };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest(".js-suggest")) hideAllSuggestions();
+    };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
@@ -100,8 +122,10 @@ const InsuranceSearch2: React.FC = () => {
         setBinSuggestions(arr as BinModel[]);
         setShowBinSuggestions(true);
       } catch (e: any) {
-        if (e?.response?.status === 401 || e?.response?.status === 403) { setShowBinSuggestions(false); setApiError("BIN endpoint returned 401/403 (public access blocked)."); }
-        else { setApiError("Failed to load BIN suggestions."); }
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setShowBinSuggestions(false);
+          setApiError("BIN endpoint returned 401/403 (public access blocked).");
+        } else { setApiError("Failed to load BIN suggestions."); }
       }
     }, 300),
     []
@@ -121,9 +145,12 @@ const InsuranceSearch2: React.FC = () => {
       setApiError(null);
       const { data } = await publicApiRef.current.get<PcnModel[]>(`/drug/GetInsurancesPcnByBinId?binId=${bin.id}`);
       setPcnList(Array.isArray(data) ? data : []);
-      if (bin.name === "Medi-Cal" && data?.[0]) { setSelectedPcn(data[0]); setPcnSearchQuery(data[0].pcn); await onSelectPcn(data[0]); }
+      if (bin.name === "Medi-Cal" && data?.[0]) {
+        setSelectedPcn(data[0]); setPcnSearchQuery(data[0].pcn); await onSelectPcn(data[0]);
+      }
     } catch (e: any) {
-      if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("PCN endpoint returned 401/403 (public access blocked)."); else setApiError("Failed to load PCNs.");
+      if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("PCN endpoint returned 401/403 (public access blocked).");
+      else setApiError("Failed to load PCNs.");
     }
   };
 
@@ -131,16 +158,20 @@ const InsuranceSearch2: React.FC = () => {
   const onSelectPcn = async (pcn: PcnModel) => {
     setSelectedPcn(pcn); setPcnSearchQuery(pcn.pcn); setShowPcnSuggestions(false);
     // reset downstream
-    setRxGroups([]); setSelectedRxGroup(null); setDrugSearchQuery(""); setClassInfos([]); setPage(1); setDrugs([]); setSelectedDrug(null); setNdcList([]); setSelectedNdc(""); setNetDetails(null);
+    setRxGroups([]); setSelectedRxGroup(null);
+    setDrugSearchQuery(""); setClassInfos([]); setPage(1); setDrugs([]); setSelectedDrug(null); setNdcList([]); setSelectedNdc(""); setNetDetails(null);
 
     if (!publicApiRef.current) return;
     try {
       setApiError(null);
       const { data } = await publicApiRef.current.get<RxGroupModel[]>(`/drug/GetInsurancesRxByPcnId?pcnId=${pcn.id}`);
       setRxGroups(Array.isArray(data) ? data : []);
-      if (pcn.pcn === "Medi-Cal" && data?.[0]) { setSelectedRxGroup(data[0]); setRxGroupSearchQuery(data[0].rxGroup); }
+      if (pcn.pcn === "Medi-Cal" && data?.[0]) {
+        setSelectedRxGroup(data[0]); setRxGroupSearchQuery(data[0].rxGroup);
+      }
     } catch (e: any) {
-      if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("RxGroup endpoint returned 401/403 (public access blocked)."); else setApiError("Failed to load Rx Groups.");
+      if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("RxGroup endpoint returned 401/403 (public access blocked).");
+      else setApiError("Failed to load Rx Groups.");
     }
   };
 
@@ -176,18 +207,26 @@ const InsuranceSearch2: React.FC = () => {
         setClassInfos((prev) => (append ? [...prev, ...payload] : payload));
         setPage(pageNumber);
       } catch (e: any) {
-        if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("Class search endpoint returned 401/403 (public access blocked)."); else setApiError("Failed to load classes.");
+        if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("Class search endpoint returned 401/403 (public access blocked).");
+        else setApiError("Failed to load classes.");
       }
     },
     [drugSearchQuery, limitSearch, selectedRxGroup, selectedPcn, selectedBin, classType]
   );
 
   const debouncedClassSearch = useCallback(
-    debounce(() => { if (!drugSearchQuery.trim()) { setClassInfos([]); setPage(1); return; } fetchClasses(1, false); setShowDrugSuggestions(true); }, 300),
+    debounce(() => {
+      if (!drugSearchQuery.trim()) { setClassInfos([]); setPage(1); return; }
+      fetchClasses(1, false);
+      setShowDrugSuggestions(true);
+    }, 300),
     [fetchClasses, drugSearchQuery]
   );
 
-  useEffect(() => { if (!ready) return; debouncedClassSearch(); }, [ready, drugSearchQuery, limitSearch, selectedRxGroup, selectedPcn, selectedBin, debouncedClassSearch]);
+  useEffect(() => {
+    if (!ready) return;
+    debouncedClassSearch();
+  }, [ready, drugSearchQuery, limitSearch, selectedRxGroup, selectedPcn, selectedBin, debouncedClassSearch]);
 
   // infinite scroll for class list
   useEffect(() => {
@@ -196,7 +235,10 @@ const InsuranceSearch2: React.FC = () => {
       if (isLoadingMore) return;
       const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
       if (!atBottom) return;
-      if (classInfos.length >= page * PAGE_SIZE) { setIsLoadingMore(true); try { await fetchClasses(page + 1, true); } finally { setIsLoadingMore(false); } }
+      if (classInfos.length >= page * PAGE_SIZE) {
+        setIsLoadingMore(true);
+        try { await fetchClasses(page + 1, true); } finally { setIsLoadingMore(false); }
+      }
     };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
@@ -214,7 +256,8 @@ const InsuranceSearch2: React.FC = () => {
       const first = arr[0] || null; setSelectedDrug(first);
       const ndcs = Array.from(new Set(arr.map((d) => d.ndc))); setNdcList(ndcs); setSelectedNdc(ndcs[0] ?? "");
     } catch (e: any) {
-      if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("GetDrugsByClassId returned 401/403 (public access blocked)."); else setApiError("Failed to load drugs for class.");
+      if (e?.response?.status === 401 || e?.response?.status === 403) setApiError("GetDrugsByClassId returned 401/403 (public access blocked).");
+      else setApiError("Failed to load drugs for class.");
     }
   };
 
@@ -248,11 +291,17 @@ const InsuranceSearch2: React.FC = () => {
     return (<div className="container py-5 text-center"><div className="spinner-border" role="status" /></div>);
   }
 
-  return (
-    <div className="container mid py-4">
-      <PageMeta title="Insurance Search (Drug Class)" description="Search by BIN → PCN → Rx Group, then by Drug Class — using public endpoints only." canonical={window.location.origin + "/insurance-search-2"} />
+  const drugClassDisabled = limitSearch && !selectedRxGroup && !selectedPcn && !selectedBin;
 
-      {/* Centered title & breadcrumb with larger font and a bit more spacing */}
+  return (
+    <div className="container mid min-vh-100 d-flex flex-column justify-content-center py-4">
+      <PageMeta
+        title="Insurance Search (Drug Class)"
+        description="Search by BIN → PCN → Rx Group, then by Drug Class — using public endpoints only."
+        canonical={window.location.origin + "/insurance-search-2"}
+      />
+
+      {/* Centered title & breadcrumb */}
       <div className="d-flex flex-column align-items-center text-center mb-4 mt-4 breadcrumb-xl">
         <div style={{ fontSize: "2.25rem", fontWeight: 700 }}>
           <AutoBreadcrumb title="Insurance Search (Drug Class)" />
@@ -261,152 +310,261 @@ const InsuranceSearch2: React.FC = () => {
 
       <div className="row justify-content-center">
         <div className="col-12 col-lg-10 col-xl-8">
-          {/* allow dropdowns to escape clipping */}
+          {/* let dropdowns escape clipping */}
           <div className="card shadow-lg border-0 rounded-4" style={{ overflow: "visible" }}>
             <div className="card-header text-center py-4 px-5">
-              <h4 className="mb-1 fw-semibold"><i className="ti ti-building-bank me-2"></i> Insurance Search (Drug Class)</h4>
-              <p className="mb-0 text-muted">Type BIN/PCN/Rx Group, then search Drug Class. {apiError && <span className="ms-2 text-warning">{apiError}</span>}</p>
+              <h4 className="mb-1 fw-semibold">
+                <i className="ti ti-building-bank me-2"></i>
+                Insurance Search (Drug Class)
+              </h4>
+              <p className="mb-0 text-muted">
+                Type BIN/PCN/Rx Group, then search Drug Class.
+                {apiError && <span className="ms-2 text-warning">{apiError}</span>}
+              </p>
             </div>
 
             <div className="card-body p-5">
               {/* Toggle */}
               <div className="d-flex align-items-center justify-content-between bg-light rounded-3 p-3 mb-4">
-                <label htmlFor="limitSearch" className="form-label m-0 fw-medium"><i className="ti ti-filter me-1"></i> Limit search to selected insurance data</label>
+                <label htmlFor="limitSearch" className="form-label m-0 fw-medium">
+                  <i className="ti ti-filter me-1"></i>
+                  Limit search to selected insurance data
+                </label>
                 <div className="form-check form-switch m-0">
-                  <input id="limitSearch" className="form-check-input" type="checkbox" checked={limitSearch} onChange={() => { clearAll(); setLimitSearch(!limitSearch); }} style={{ width: "2.5em" }} />
+                  <input
+                    id="limitSearch"
+                    className="form-check-input"
+                    type="checkbox"
+                    checked={limitSearch}
+                    onChange={() => { clearAll(); setLimitSearch(!limitSearch); }}
+                    style={{ width: "2.5em" }}
+                  />
                 </div>
               </div>
 
-              {/* Insurance Information */}
-              <div className="mb-4 mt-2">
-                <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2"><i className="ti ti-id me-2"></i> Insurance Information</h6>
-                <div className="row g-3">
-                  {/* BIN */}
-                  <div className="col-md-6 position-relative js-suggest">
-                    <label className="form-label fw-medium text-dark mb-2">BIN or Insurance Name</label>
-                    <div className="input-group input-group-lg">
-                      <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
-                      <input type="text" value={binQuery} onChange={(e) => setBinQuery(e.target.value)} onFocus={() => { hideAllSuggestions(); setShowBinSuggestions(true); }} placeholder="e.g., 610591 or Caremark" className="form-control border-start-0 ps-2" style={{ height: "52px" }} />
-                      {binQuery && (<button className="btn btn-outline-secondary d-flex align-items-center" onClick={clearAll} style={{ height: "52px" }}><i className="ti ti-x" /></button>)}
-                    </div>
-                    {showBinSuggestions && binSuggestions.length > 0 && (
-                      <div className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg" style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }} role="listbox">
-                        {binSuggestions.map((b) => (
-                          <button key={b.id} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start" onClick={() => onSelectBin(b)}>
-                            <div className="d-flex justify-content-between align-items-center"><span className="fw-medium">{b.bin}</span><span className="text-muted small">{b.name}</span></div>
-                          </button>
-                        ))}
-                      </div>
+              {/* Inputs grid — ALL visible by default */}
+              <div className="row g-4">
+                {/* BIN */}
+                <div className="col-12 col-lg-6 position-relative js-suggest">
+                  <label className="form-label fw-medium text-dark mb-2">BIN or Insurance Name</label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
+                    <input
+                      type="text"
+                      value={binQuery}
+                      onChange={(e) => setBinQuery(e.target.value)}
+                      onFocus={() => { hideAllSuggestions(); setShowBinSuggestions(true); }}
+                      placeholder="e.g., 610591 or Caremark"
+                      className="form-control border-start-0 ps-2"
+                      style={{ height: "52px" }}
+                      aria-expanded={showBinSuggestions}
+                      aria-controls="bin-suggestions"
+                      role="combobox"
+                      aria-autocomplete="list"
+                    />
+                    {binQuery && (
+                      <button className="btn btn-outline-secondary d-flex align-items-center" onClick={clearAll} style={{ height: "52px" }}>
+                        <i className="ti ti-x" />
+                      </button>
                     )}
                   </div>
+                  {showBinSuggestions && binSuggestions.length > 0 && (
+                    <div id="bin-suggestions" className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                         style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }} role="listbox">
+                      {binSuggestions.map((b) => (
+                        <button key={b.id} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                                onClick={() => onSelectBin(b)} role="option">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span className="fw-medium">{b.bin}</span>
+                            <span className="text-muted small">{b.name}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-                  {/* PCN */}
-                  {!!selectedBin && (
-                    <div className="col-md-6 position-relative js-suggest">
-                      <label className="form-label fw-medium text-dark mb-2">Search for PCN</label>
-                      <div className="input-group input-group-lg">
-                        <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
-                        <input type="text" className="form-control border-start-0 ps-2" value={pcnSearchQuery} onChange={(e) => setPcnSearchQuery(e.target.value)} onFocus={() => { hideAllSuggestions(); setShowPcnSuggestions(true); }} placeholder="e.g., MEDICAL / OPTUM ..." style={{ height: "52px" }} />
-                      </div>
-                      {showPcnSuggestions && filteredPcnList.length > 0 && (
-                        <div className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg" style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }} role="listbox">
-                          {filteredPcnList.map((p) => (<button key={p.id} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start" onClick={() => onSelectPcn(p)}>{p.pcn}</button>))}
+                {/* PCN */}
+                <div className="col-12 col-lg-6 position-relative js-suggest">
+                  <label className="form-label fw-medium text-dark mb-2">Search for PCN</label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      value={pcnSearchQuery}
+                      onChange={(e) => setPcnSearchQuery(e.target.value)}
+                      onFocus={() => { if (selectedBin) { hideAllSuggestions(); setShowPcnSuggestions(true); } }}
+                      placeholder={selectedBin ? "e.g., MEDICAL / OPTUM ..." : "Pick BIN first…"}
+                      style={{ height: "52px" }}
+                      disabled={!selectedBin || pcnList.length === 0}
+                      aria-disabled={!selectedBin || pcnList.length === 0}
+                      aria-expanded={showPcnSuggestions}
+                      aria-controls="pcn-suggestions"
+                      role="combobox"
+                      aria-autocomplete="list"
+                    />
+                  </div>
+                  {showPcnSuggestions && filteredPcnList.length > 0 && (
+                    <div id="pcn-suggestions" className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                         style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }} role="listbox">
+                      {filteredPcnList.map((p) => (
+                        <button key={p.id} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                                onClick={() => onSelectPcn(p)} role="option">
+                          {p.pcn}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!selectedBin && <small className="text-muted">Pick BIN to enable this field.</small>}
+                </div>
+
+                {/* Rx Group */}
+                <div className="col-12 col-lg-6 position-relative js-suggest">
+                  <label className="form-label fw-medium text-dark mb-2">Search for Rx Group</label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      value={rxGroupSearchQuery}
+                      onChange={(e) => setRxGroupSearchQuery(e.target.value)}
+                      onFocus={() => { if (selectedPcn) { hideAllSuggestions(); setShowRxGroupSuggestions(true); } }}
+                      placeholder={selectedPcn ? "e.g., Medi-Cal / OPT-RX ..." : "Pick PCN first…"}
+                      style={{ height: "52px" }}
+                      disabled={!selectedPcn || rxGroups.length === 0}
+                      aria-disabled={!selectedPcn || rxGroups.length === 0}
+                      aria-expanded={showRxGroupSuggestions}
+                      aria-controls="rxgroup-suggestions"
+                      role="combobox"
+                      aria-autocomplete="list"
+                    />
+                  </div>
+                  {showRxGroupSuggestions && filteredRxGroupList.length > 0 && (
+                    <div id="rxgroup-suggestions" className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                         style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }} role="listbox">
+                      {filteredRxGroupList.map((rx) => (
+                        <button key={rx.id} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                                onClick={() => onSelectRxGroup(rx)} role="option">
+                          {rx.rxGroup}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!selectedPcn && <small className="text-muted">Choose PCN to enable Rx Groups.</small>}
+                </div>
+
+                {/* Drug Class */}
+                <div className="col-12 position-relative js-suggest">
+                  <label className="form-label fw-medium text-dark mb-2">Search for Drug Class</label>
+                  <div className="input-group input-group-lg">
+                    <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
+                    <input
+                      type="text"
+                      className="form-control border-start-0 ps-2"
+                      value={drugSearchQuery}
+                      onChange={(e) => setDrugSearchQuery(e.target.value)}
+                      onFocus={() => { if (!drugClassDisabled) { hideAllSuggestions(); setShowDrugSuggestions(true); } }}
+                      placeholder={drugClassDisabled ? "Pick BIN → PCN → Rx Group (or disable toggle)..." : "e.g., Statins"}
+                      style={{ height: "52px" }}
+                      disabled={drugClassDisabled}
+                      aria-disabled={drugClassDisabled}
+                    />
+                  </div>
+                  {showDrugSuggestions && !!drugSearchQuery && (
+                    <div ref={classListRef} className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                         style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }} role="listbox">
+                      {classInfos.map((ci) => (
+                        <button key={`${ci.classType}-${ci.classId}-${ci.id}`}
+                                className="list-group-item list-group-item-action border-0 py-3 px-4 text-start"
+                                onClick={() => onSelectClass(ci)}>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span>{ci.className}</span>
+                            <span className="text-muted small">{ci.classType}</span>
+                          </div>
+                        </button>
+                      ))}
+                      {isLoadingMore && (
+                        <div className="text-center small text-muted py-3 border-top">
+                          <i className="ti ti-loader me-1"></i> Loading more…
                         </div>
+                      )}
+                      {classInfos.length === 0 && (
+                        <div className="text-center small text-muted py-3">No classes found</div>
                       )}
                     </div>
                   )}
-
-                  {/* Rx Group */}
-                  {rxGroups.length > 0 && (
-                    <div className="col-md-6 position-relative js-suggest">
-                      <label className="form-label fw-medium text-dark mb-2">Search for Rx Group</label>
-                      <div className="input-group input-group-lg">
-                        <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
-                        <input type="text" className="form-control border-start-0 ps-2" value={rxGroupSearchQuery} onChange={(e) => setRxGroupSearchQuery(e.target.value)} onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }} placeholder="e.g., Medi-Cal / OPT-RX ..." style={{ height: "52px" }} />
-                      </div>
-                      {showRxGroupSuggestions && filteredRxGroupList.length > 0 && (
-                        <div className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg" style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }} role="listbox">
-                          {filteredRxGroupList.map((rx) => (<button key={rx.id} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start" onClick={() => onSelectRxGroup(rx)}>{rx.rxGroup}</button>))}
-                        </div>
-                      )}
-                    </div>
+                  {drugClassDisabled && (
+                    <small className="text-muted">Choose insurance filters or turn off the toggle to search globally.</small>
                   )}
+                </div>
+
+                {/* NDC + Drug details */}
+                <div className="col-12 col-lg-6">
+                  <label className="form-label fw-medium text-dark mb-2">NDC</label>
+                  {ndcList.length <= 1 ? (
+                    <input className="form-control form-control-lg" value={selectedNdc} placeholder="—" readOnly disabled={ndcList.length === 0} />
+                  ) : (
+                    <select className="form-select form-select-lg" value={selectedNdc} onChange={(e) => setSelectedNdc(e.target.value)}>
+                      {ndcList.map((n) => (<option key={n} value={n}>{n}</option>))}
+                    </select>
+                  )}
+                  {ndcList.length === 0 && <small className="text-muted">Pick a drug class to load NDCs.</small>}
+                </div>
+
+                <div className="col-12 col-lg-6">
+                  <label className="form-label fw-medium text-dark mb-2">Drug Details</label>
+                  <div className="bg-light rounded-3 p-3 h-100">
+                    {selectedDrug ? (
+                      <>
+                        <div className="fw-semibold">{selectedDrug.name}</div>
+                        <div className="small text-muted">{selectedDrug.className}</div>
+                      </>
+                    ) : (
+                      <div className="small text-muted">Select a class to preview first drug.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Net preview */}
+                <div className="col-12">
+                  <div className={`alert ${selectedDrug && selectedNdc ? "alert-primary" : "alert-light border"} d-flex align-items-center gap-3 p-3 rounded-3`}>
+                    <div className={`p-3 rounded-3 ${selectedDrug && selectedNdc ? "bg-white" : "bg-light"}`}>
+                      <i className={`ti ti-currency-dollar ${selectedDrug && selectedNdc ? "text-primary" : "text-muted"} fs-4`} aria-hidden="true" />
+                    </div>
+                    <div>
+                      <div className="fw-semibold">Net Price</div>
+                      <div className="fs-5 fw-bold">
+                        {selectedDrug && selectedNdc
+                          ? (netDetails?.net != null ? `$${netDetails.net}` : apiError ? "—" : "…")
+                          : "Select NDC to preview"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Drug Class */}
-              {!!selectedRxGroup && (
-                <div className="mb-4 mt-2">
-                  <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2"><i className="ti ti-pill me-2"></i> Drug Class Information</h6>
-                  <div className="position-relative js-suggest">
-                    <label className="form-label fw-medium text-dark mb-2">Search for Drug Class</label>
-                    <div className="input-group input-group-lg">
-                      <span className="input-group-text bg-light border-end-0"><i className="ti ti-search text-primary" /></span>
-                      <input type="text" className="form-control border-start-0 ps-2" value={drugSearchQuery} onChange={(e) => setDrugSearchQuery(e.target.value)} onFocus={() => { hideAllSuggestions(); setShowDrugSuggestions(true); }} placeholder="e.g., Statins" style={{ height: "52px" }} />
-                    </div>
-                    {showDrugSuggestions && drugSearchQuery && (
-                      <div ref={classListRef} className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg" style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }} role="listbox">
-                        {classInfos.map((ci) => (
-                          <button key={`${ci.classType}-${ci.classId}-${ci.id}`} className="list-group-item list-group-item-action border-0 py-3 px-4 text-start" onClick={() => onSelectClass(ci)}>
-                            <div className="d-flex justify-content-between align-items-center"><span>{ci.className}</span><span className="text-muted small">{ci.classType}</span></div>
-                          </button>
-                        ))}
-                        {isLoadingMore && (<div className="text-center small text-muted py-3 border-top"><i className="ti ti-loader me-1"></i> Loading more…</div>)}
-                        {classInfos.length === 0 && (<div className="text-center small text-muted py-3">No classes found</div>)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* NDC */}
-              {ndcList.length > 0 && (
-                <div className="mb-4 mt-2">
-                  <h6 className="mb-3 fw-semibold text-primary border-bottom pb-2"><i className="ti ti-barcode me-2"></i> NDC Information</h6>
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label fw-medium text-dark mb-2">NDC</label>
-                      {ndcList.length === 1 ? (
-                        <input className="form-control form-control-lg" value={selectedNdc} readOnly />
-                      ) : (
-                        <select className="form-select form-select-lg" value={selectedNdc} onChange={(e) => setSelectedNdc(e.target.value)}>
-                          {ndcList.map((n) => (<option key={n} value={n}>{n}</option>))}
-                        </select>
-                      )}
-                    </div>
-                    {selectedDrug && (
-                      <div className="col-md-6">
-                        <label className="form-label fw-medium text-dark mb-2">Drug Details</label>
-                        <div className="bg-light rounded-3 p-3"><div className="fw-semibold">{selectedDrug.name}</div><div className="small text-muted">{selectedDrug.className}</div></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Net preview */}
-              {selectedDrug && selectedNdc && (
-                <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
-                  <div className="bg-white p-3 rounded-3"><i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" /></div>
-                  <div><div className="fw-semibold">Net Price</div><div className="fs-5 fw-bold">{netDetails?.net != null ? `$${netDetails.net}` : apiError ? "—" : "…"}</div></div>
-                </div>
-              )}
 
               {/* Action */}
-              {selectedDrug && selectedNdc && (
-                <button className="btn btn-primary btn-lg w-100 py-3 fw-semibold" onClick={() => {
-                  if (selectedRxGroup?.rxGroup) localStorage.setItem("selectedRx", selectedRxGroup.rxGroup);
-                  navigate(`/drug/${selectedDrug.id}?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedRxGroup?.id ?? ""}`);
-                }}>
+              <div className="mt-2">
+                <button
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
+                  onClick={() => {
+                    if (selectedRxGroup?.rxGroup) localStorage.setItem("selectedRx", selectedRxGroup.rxGroup);
+                    if (!selectedDrug || !selectedNdc) return;
+                    navigate(`/drug/${selectedDrug.id}?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedRxGroup?.id ?? ""}`);
+                  }}
+                  disabled={!selectedDrug || !selectedNdc || !selectedRxGroup}
+                  title={!selectedDrug || !selectedNdc || !selectedRxGroup ? "Pick BIN → PCN → Rx Group → Class → NDC" : ""}
+                >
                   <i className="ti ti-file-text me-2"></i> View Drug Details
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Local, page-scoped style hook for sidebar offset & larger breadcrumb */}
+      {/* Local, page-scoped styles to match the other pages */}
       <style>{`
         .mid { margin-left: 220px; }
         @media (max-width: 991.98px) { .mid { margin-left: 0; } }
