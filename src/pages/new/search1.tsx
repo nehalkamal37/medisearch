@@ -1,24 +1,45 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
 import debounce from "debounce";
 import axiosInstance from "../../api/axiosInstance";
 
-// optional react-router (بدون اعتماد صريح)
+// Optional react-router (no hard dependency)
 void useMemo;
 let navigateFn: ((path: string) => void) | null = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { useNavigate } = require("react-router-dom");
   // @ts-ignore
   const nav = typeof useNavigate === "function" ? useNavigate : null;
   if (nav) navigateFn = nav();
-} catch {}
+} catch {
+  /* no-op */
+}
 
-type Drug = { id: number; name: string; ndc?: string };
+/** ====== Types (unchanged) ====== */
+type Drug = {
+  id: number;
+  name: string;
+  ndc?: string;
+};
 type DrugInsuranceInfo = { insuranceId: number; insurance: string };
-type Prescription = { net?: number; ndcCode?: string; drugName?: string; drugClassId?: number };
+type Prescription = {
+  net?: number;
+  ndcCode?: string;
+  drugName?: string;
+  drugClassId?: number;
+};
 
+/** ====== Component ====== */
 const DrugSearch: React.FC = () => {
-  // ===== search state =====
+  /** Search + suggestions (from API) */
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -26,16 +47,22 @@ const DrugSearch: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+
+  // Anchor ref for positioning the floating suggestions overlay
+  const anchorRef = useRef<HTMLDivElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // ===== selections (التبعية زي ما هي) =====
+  /** Selected state */
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null);
   const [ndcList, setNdcList] = useState<string[]>([]);
   const [selectedNdc, setSelectedNdc] = useState("");
   const [insList, setInsList] = useState<DrugInsuranceInfo[]>([]);
-  const [selectedIns, setSelectedIns] = useState<DrugInsuranceInfo | null>(null);
+  const [selectedIns, setSelectedIns] = useState<DrugInsuranceInfo | null>(
+    null
+  );
   const [details, setDetails] = useState<Prescription | null>(null);
 
+  /** ====== Debounced API search (unchanged) ====== */
   const debouncedSearch = useCallback(
     debounce(async (text: string, page: number) => {
       if (!text || text.trim().length < 1) {
@@ -47,7 +74,9 @@ const DrugSearch: React.FC = () => {
       try {
         setIsLoading(true);
         const { data } = await axiosInstance.get(
-          `/drug/searchByName?name=${encodeURIComponent(text)}&pageNumber=${page}&pageSize=20`
+          `/drug/searchByName?name=${encodeURIComponent(
+            text
+          )}&pageNumber=${page}&pageSize=20`
         );
         setSuggestions((prev) => (page === 1 ? data : [...prev, ...data]));
         setShowSuggestions(true);
@@ -63,8 +92,64 @@ const DrugSearch: React.FC = () => {
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pageRef = useRef(pageNumber);
-  useEffect(() => { pageRef.current = pageNumber; }, [pageNumber]);
+  useEffect(() => {
+    pageRef.current = pageNumber;
+  }, [pageNumber]);
 
+  // Split suggestions into Matched (prefix) & Unmatched (others),
+  // and a flat list for keyboard navigation.
+  const { matched, unmatched, flatSuggestions } = useMemo(() => {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) {
+      return {
+        matched: suggestions,
+        unmatched: [],
+        flatSuggestions: suggestions,
+      };
+    }
+    const m = suggestions.filter((d) => d.name?.toLowerCase().startsWith(q));
+    const u = suggestions.filter((d) => !d.name?.toLowerCase().startsWith(q));
+    return { matched: m, unmatched: u, flatSuggestions: [...m, ...u] };
+  }, [suggestions, query]);
+
+  /**
+   * === Floating suggestions via Portal (prevents clipping) ===
+   */
+  const [overlayStyle, setOverlayStyle] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const computeOverlayPos = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const r = anchor.getBoundingClientRect();
+    setOverlayStyle({
+      top: r.bottom,
+      left: r.left,
+      width: r.width,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (showSuggestions && suggestions.length > 0) {
+      computeOverlayPos();
+    }
+  }, [showSuggestions, suggestions.length, computeOverlayPos]);
+
+  useEffect(() => {
+    if (!showSuggestions) return;
+    const onWin = () => computeOverlayPos();
+    window.addEventListener("resize", onWin);
+    window.addEventListener("scroll", onWin, true);
+    return () => {
+      window.removeEventListener("resize", onWin);
+      window.removeEventListener("scroll", onWin, true);
+    };
+  }, [showSuggestions, computeOverlayPos]);
+
+  /** Infinite scroll inside suggestions */
   const onSuggestionsScroll = () => {
     if (!dropdownRef.current || isLoading || !hasMore) return;
     const { scrollTop, clientHeight, scrollHeight } = dropdownRef.current;
@@ -81,7 +166,7 @@ const DrugSearch: React.FC = () => {
     return () => el.removeEventListener("scroll", onSuggestionsScroll);
   }, [isLoading, hasMore, query]);
 
-  // ===== handlers =====
+  /** Handlers */
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
@@ -96,12 +181,16 @@ const DrugSearch: React.FC = () => {
     setSelectedDrug(drug);
     setQuery(drug.name);
     setShowSuggestions(false);
-    // reset dependents
-    setNdcList([]); setSelectedNdc("");
-    setInsList([]); setSelectedIns(null);
+    // reset dependent state
+    setNdcList([]);
+    setSelectedNdc("");
+    setInsList([]);
+    setSelectedIns(null);
     setDetails(null);
     try {
-      const { data } = await axiosInstance.get(`/drug/getDrugNDCs?name=${encodeURIComponent(drug.name)}`);
+      const { data } = await axiosInstance.get(
+        `/drug/getDrugNDCs?name=${encodeURIComponent(drug.name)}`
+      );
       setNdcList(data ?? []);
     } catch (e) {
       console.error("Error fetching NDCs:", e);
@@ -110,10 +199,14 @@ const DrugSearch: React.FC = () => {
 
   const handlePickNdc = async (ndc: string) => {
     setSelectedNdc(ndc);
-    setInsList([]); setSelectedIns(null); setDetails(null);
+    setInsList([]);
+    setSelectedIns(null);
+    setDetails(null);
     if (!ndc) return;
     try {
-      const { data } = await axiosInstance.get(`/drug/GetInsuranceByNdc?ndc=${encodeURIComponent(ndc)}`);
+      const { data } = await axiosInstance.get(
+        `/drug/GetInsuranceByNdc?ndc=${encodeURIComponent(ndc)}`
+      );
       setInsList(data ?? []);
     } catch (e) {
       console.error("Error fetching insurances:", e);
@@ -126,13 +219,14 @@ const DrugSearch: React.FC = () => {
     setDetails(null);
   };
 
-  // fetch details when both are ready
   useEffect(() => {
     (async () => {
       if (!selectedNdc || !selectedIns) return;
       try {
         const { data } = await axiosInstance.get(
-          `/drug/GetDetails?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedIns.insuranceId}`
+          `/drug/GetDetails?ndc=${encodeURIComponent(
+            selectedNdc
+          )}&insuranceId=${selectedIns.insuranceId}`
         );
         setDetails(data ?? null);
       } catch (e) {
@@ -143,29 +237,50 @@ const DrugSearch: React.FC = () => {
   }, [selectedNdc, selectedIns]);
 
   const clearAll = () => {
-    setQuery(""); setShowSuggestions(false); setActiveIndex(-1); setSuggestions([]);
-    setSelectedDrug(null); setNdcList([]); setSelectedNdc("");
-    setInsList([]); setSelectedIns(null); setDetails(null);
-    setPageNumber(1); setHasMore(true);
+    setQuery("");
+    setShowSuggestions(false);
+    setActiveIndex(-1);
+    setSuggestions([]);
+    setSelectedDrug(null);
+    setNdcList([]);
+    setSelectedNdc("");
+    setInsList([]);
+    setSelectedIns(null);
+    setDetails(null);
+    setPageNumber(1);
+    setHasMore(true);
   };
 
   const viewDrugDetails = () => {
     if (!selectedDrug) return;
-    if (selectedIns?.insurance) localStorage.setItem("selectedRx", selectedIns.insurance);
-    const url = `/drug/${selectedDrug.id}?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedIns?.insuranceId ?? ""}`;
-    if (navigateFn) navigateFn(url); else window.location.href = url;
+    // keep original localStorage + route contract (insurance/ndc may be empty)
+    if (selectedIns?.insurance) {
+      localStorage.setItem("selectedRx", selectedIns.insurance);
+    }
+    localStorage.setItem(
+      "InsuranceId",
+      selectedIns?.insuranceId != null ? String(selectedIns.insuranceId) : ""
+    );
+    localStorage.setItem("DrugId", selectedDrug?.id.toString() ?? "");
+    localStorage.setItem("NDCCode", selectedNdc.toString() ?? "");
+
+    const url = `/drug-page`;
+    if (navigateFn) {
+      navigateFn(url);
+    } else {
+      window.location.href = url;
+    }
   };
 
-  // ===== UI =====
- 
+  /** ====== UI (restyled to match target) ====== */
   return (
-    <div className="container mid min-vh-100 d-flex flex-column justify-content-center py-4 ">
-      {/* عنوان و breadcrumb في المنتصف */}
+    <div className="container mid min-vh-100  d-flex flex-column justify-content-center py-4">
+      {/* Centered title & breadcrumb */}
       <div className="d-flex flex-column align-items-center text-center mb-4">
-        <AutoBreadcrumb title="Search Medicines" />
+        <div style={{ fontSize: "2.5rem", fontWeight: 600 }}><AutoBreadcrumb title="Search Medicines" /></div>
       </div>
 
-      <div className="row justify-content-center">
+      <div className="row form mt-88 justify-content-center">
         <div className="col-12 col-lg-10 col-xl-8">
           <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
             <div className="card-header text-center py-4 px-5">
@@ -181,8 +296,10 @@ const DrugSearch: React.FC = () => {
             <div className="card-body p-5">
               {/* 1) Drug search */}
               <div className="mb-4 position-relative">
-                <label htmlFor="drugSearch" className="form-label fw-medium text-dark mb-2">Drug name</label>
-                <div className="input-group input-group-lg">
+                <label htmlFor="drugSearch" className="form-label fw-medium text-dark mb-2">
+                  Drug name
+                </label>
+                <div className="input-group input-group-lg" ref={anchorRef}>
                   <span className="input-group-text bg-light border-end-0">
                     <i className="ti ti-search text-primary" aria-hidden="true" />
                   </span>
@@ -196,15 +313,19 @@ const DrugSearch: React.FC = () => {
                     onChange={handleQueryChange}
                     onFocus={() => setShowSuggestions(true)}
                     onKeyDown={(e) => {
-                      if (!showSuggestions || suggestions.length === 0) return;
+                      if (!showSuggestions || flatSuggestions.length === 0) return;
                       if (e.key === "ArrowDown") {
-                        e.preventDefault(); setActiveIndex((p) => (p + 1 < suggestions.length ? p + 1 : 0));
+                        e.preventDefault();
+                        setActiveIndex((p) => (p + 1 < flatSuggestions.length ? p + 1 : 0));
                       } else if (e.key === "ArrowUp") {
-                        e.preventDefault(); setActiveIndex((p) => (p - 1 >= 0 ? p - 1 : suggestions.length - 1));
+                        e.preventDefault();
+                        setActiveIndex((p) => (p - 1 >= 0 ? p - 1 : flatSuggestions.length - 1));
                       } else if (e.key === "Enter" && activeIndex >= 0) {
-                        e.preventDefault(); handlePickDrug(suggestions[activeIndex]);
+                        e.preventDefault();
+                        handlePickDrug(flatSuggestions[activeIndex]);
                       } else if (e.key === "Escape") {
-                        setShowSuggestions(false); setActiveIndex(-1);
+                        setShowSuggestions(false);
+                        setActiveIndex(-1);
                       }
                     }}
                     role="combobox"
@@ -226,36 +347,83 @@ const DrugSearch: React.FC = () => {
                   )}
                 </div>
 
-                {showSuggestions && suggestions.length > 0 && (
-                  <div
-                    id="suggestion-list"
-                    ref={dropdownRef}
-                    className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
-                    style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
-                    role="listbox"
-                    aria-label="Drug search suggestions"
-                  >
-                    {suggestions.map((d, i) => (
-                      <button
-                        key={d.id}
-                        id={`sugg-${i}`}
-                        role="option"
-                        aria-selected={activeIndex === i}
-                        className={`list-group-item list-group-item-action border-0 py-3 px-4 ${activeIndex === i ? "active bg-primary" : ""}`}
-                        onClick={() => handlePickDrug(d)}
-                      >
-                        <i className="ti ti-pill me-2"></i>
-                        {d.name}
-                      </button>
-                    ))}
-                    {isLoading && <div className="px-4 py-2 small text-muted">Loading…</div>}
-                  </div>
-                )}
+                {/* Floating suggestions via portal (escapes overflow/clip) */}
+                {showSuggestions && suggestions.length > 0 && overlayStyle &&
+                  createPortal(
+                    <div
+                      id="suggestion-list"
+                      ref={dropdownRef}
+                      className="bg-white border rounded-3 shadow-lg"
+                      style={{
+                        position: "fixed",
+                        top: overlayStyle.top,
+                        left: overlayStyle.left,
+                        width: overlayStyle.width,
+                        maxHeight: 260,
+                        overflowY: "auto",
+                        zIndex: 1050,
+                      }}
+                      role="listbox"
+                      aria-label="Drug search suggestions"
+                    >
+                      {matched.map((d, i) => (
+                        <button
+                          key={d.id}
+                          id={`sugg-${i}`}
+                          role="option"
+                          aria-selected={activeIndex === i}
+                          className={`list-group-item list-group-item-action border-0 py-3 px-4 ${
+                            activeIndex === i ? "active bg-primary" : ""
+                          } border-start border-3 border-success`}
+                          onClick={() => handlePickDrug(d)}
+                        >
+                          <i className="ti ti-pill me-2"></i>
+                          {d.name}
+                        </button>
+                      ))}
+
+                      {unmatched.length > 0 && (
+                        <div
+                          className="px-4 py-2 small text-primary bg-light border-top fw-medium"
+                          role="separator"
+                          aria-hidden="true"
+                        >
+                          Did you mean?
+                        </div>
+                      )}
+
+                      {unmatched.map((d, i) => {
+                        const idx = matched.length + i;
+                        return (
+                          <button
+                            key={d.id}
+                            id={`sugg-${idx}`}
+                            role="option"
+                            aria-selected={activeIndex === idx}
+                            className={`list-group-item list-group-item-action border-0 py-3 px-4 ${
+                              activeIndex === idx ? "active bg-primary" : ""
+                            }`}
+                            onClick={() => handlePickDrug(d)}
+                          >
+                            <i className="ti ti-help-circle me-2"></i>
+                            {d.name}
+                          </button>
+                        );
+                      })}
+
+                      {isLoading && (
+                        <div className="px-4 py-2 small text-muted">Loading…</div>
+                      )}
+                    </div>,
+                    document.body
+                  )}
               </div>
 
-              {/* 2) NDC — يظهر دائمًا لكن Disabled لحد ما تختار دواء */}
+              {/* 2) NDC — always visible, disabled until drug is picked */}
               <div className="mb-4">
-                <label htmlFor="ndcSelect" className="form-label fw-medium text-dark mb-2">Select NDC</label>
+                <label htmlFor="ndcSelect" className="form-label fw-medium text-dark mb-2">
+                  Select NDC
+                </label>
                 <select
                   id="ndcSelect"
                   className="form-select form-select-lg"
@@ -268,15 +436,21 @@ const DrugSearch: React.FC = () => {
                   {!selectedDrug && <option value="">Select a drug first…</option>}
                   {selectedDrug && ndcList.length === 0 && <option value="">No NDCs found</option>}
                   {ndcList.map((ndc) => (
-                    <option key={ndc} value={ndc}>{ndc}</option>
+                    <option key={ndc} value={ndc}>
+                      {ndc}
+                    </option>
                   ))}
                 </select>
-                {!selectedDrug && <small className="text-muted">Pick a drug to enable this field.</small>}
+                {!selectedDrug && (
+                  <small className="text-muted">Pick a drug to enable this field.</small>
+                )}
               </div>
 
-              {/* 3) Insurance — يظهر دائمًا لكن Disabled لحد ما تختار NDC */}
+              {/* 3) Insurance — always visible, disabled until NDC is picked */}
               <div className="mb-4">
-                <label htmlFor="insSelect" className="form-label fw-medium text-dark mb-2">Select Insurance</label>
+                <label htmlFor="insSelect" className="form-label fw-medium text-dark mb-2">
+                  Select Insurance
+                </label>
                 <select
                   id="insSelect"
                   className="form-select form-select-lg"
@@ -294,13 +468,20 @@ const DrugSearch: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                {!selectedNdc && <small className="text-muted">Choose NDC to enable insurance list.</small>}
+                {!selectedNdc && (
+                  <small className="text-muted">Choose NDC to enable insurance list.</small>
+                )}
               </div>
 
               {/* 4) Net preview */}
-              <div className={`alert ${details ? "alert-primary" : "alert-light border"} d-flex align-items-center gap-3 p-3 rounded-3 mb-4`}>
+              <div
+                className={`alert ${details ? "alert-primary" : "alert-light border"} d-flex align-items-center gap-3 p-3 rounded-3 mb-4`}
+              >
                 <div className={`p-3 rounded-3 ${details ? "bg-white" : "bg-light"}`}>
-                  <i className={`ti ti-currency-dollar ${details ? "text-primary" : "text-muted"} fs-4`} aria-hidden="true" />
+                  <i
+                    className={`ti ti-currency-dollar ${details ? "text-primary" : "text-muted"} fs-4`}
+                    aria-hidden="true"
+                  />
                 </div>
                 <div>
                   <div className="fw-semibold">Estimated Net Price</div>
@@ -310,15 +491,9 @@ const DrugSearch: React.FC = () => {
                 </div>
               </div>
 
-              {/* 5) Action */}
+              {/* 5) Action (now matches original behavior: enabled as soon as a drug is selected) */}
               {selectedDrug && (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
-                  onClick={viewDrugDetails}
-                  disabled={!selectedNdc || !selectedIns}
-                  title={!selectedNdc || !selectedIns ? "Pick NDC and Insurance first" : ""}
-                >
+                <button type="button" className="btn btn-primary btn-lg w-100 py-3 fw-semibold" onClick={viewDrugDetails}>
                   <i className="ti ti-file-text me-2"></i>
                   View Drug Details
                 </button>
@@ -327,14 +502,14 @@ const DrugSearch: React.FC = () => {
           </div>
         </div>
       </div>
-   
-    <style>{`
-    .mid {
-      margin-left: 220px; /* match your sidebar width */
-     
-    }
-  `}
-</style>
+
+      {/* Local, page-scoped style hook for sidebar offset to center content */}
+      <style>{`
+        .mid { margin-left: 220px; }
+        .form { margin-top: 88px; }
+        .mt-88 { margin-top: 88px; }
+        @media (max-width: 991.98px) { .mid { margin-left: 0; } }
+      `}</style>
     </div>
   );
 };
