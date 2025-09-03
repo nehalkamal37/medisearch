@@ -391,7 +391,7 @@ const InsuranceSearch: React.FC = () => {
   }, []);
 
   return (
-    <div className="container py-4">
+    <div className="container mid py-4">
       <PageMeta title="Insurance Search" description="Search by BIN / PCN / Rx Group (live API)." />
       <div className="d-flex flex-column align-items-center text-center mb-4">
         <AutoBreadcrumb title="Insurance Search" />
@@ -707,6 +707,14 @@ const InsuranceSearch: React.FC = () => {
           </div>
         </div>
       </div>
+        
+    <style>{`
+    .mid {
+      margin-left: 220px; /* match your sidebar width */
+     
+    }
+  `}
+</style>
     </div>
   );
 };

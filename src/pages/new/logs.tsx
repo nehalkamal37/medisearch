@@ -79,6 +79,63 @@ const generateMockLogs = (): Log[] => {
   return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 };
 
+/* ---------------- prettier stat cards ---------------- */
+const StatCard: React.FC<{
+  title: string;
+  value: number | string;
+  iconClass: string;           // e.g. "ti ti-search"
+  gradientFrom: string;        // hex or rgba
+  gradientTo: string;          // hex or rgba
+  footNote?: string;
+}> = ({ title, value, iconClass, gradientFrom, gradientTo, footNote }) => (
+  <div className="col-12 col-sm-6 col-lg-3">
+    <div
+      className="card h-100 border-0 shadow-sm stats-card text-white position-relative overflow-hidden"
+      style={{ background: `linear-gradient(135deg, ${gradientFrom} 0%, ${gradientTo} 100%)`, borderRadius: "1rem" }}
+      aria-label={title}
+    >
+      <div className="card-body py-3">
+        <div className="d-flex align-items-center justify-content-between">
+          <span className="fw-semibold text-uppercase small text-white-50">{title}</span>
+          <div className="bg-white bg-opacity-10 rounded-3 p-2 d-inline-flex">
+            <i className={`${iconClass}`} />
+          </div>
+        </div>
+        <h3 className="mt-2 mb-1 fw-bolder">
+          {Number.isFinite(+value) ? (+value).toLocaleString() : value}
+        </h3>
+        {footNote && <small className="text-white-50">{footNote}</small>}
+      </div>
+
+      {/* soft corner highlight */}
+      <div
+        className="position-absolute rounded-circle"
+        style={{
+          width: 160,
+          height: 160,
+          right: -40,
+          bottom: -40,
+          background: "radial-gradient(closest-side, rgba(255,255,255,.25), rgba(255,255,255,0))",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  </div>
+);
+
+const StatsCardStyles = () => (
+  <style>{`
+    .stats-card { transition: transform .18s ease, box-shadow .18s ease; }
+    .stats-card:hover { transform: translateY(-2px); box-shadow: 0 .75rem 1.75rem rgba(16,24,40,.18); }
+    .stats-card .card-body { position: relative; z-index: 1; }
+    .stats-card::after {
+      content: ""; position: absolute; inset: 0; border-radius: 1rem; pointer-events: none;
+      border: 1px solid rgba(255,255,255,.18);
+    }
+  `}</style>
+);
+/* ---------------------------------------------------- */
+
 const UserActivityLogs: React.FC = () => {
   const [logs, setLogs] = useState<Log[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<Log[]>([]);
@@ -199,6 +256,12 @@ const UserActivityLogs: React.FC = () => {
     }
   };
 
+  // quick counts for the cards
+  const totalActivities = filteredLogs.length;
+  const drugSearches = filteredLogs.filter((log) => log.action === "SEARCH_DRUG").length;
+  const activeUsers = new Set(filteredLogs.map((log) => log.user)).size;
+  const dataExports = filteredLogs.filter((log) => log.action === "EXPORT_DATA").length;
+
   return (
     <div className="page-wrapper" id="main-content">
       <div className="row justify-content-center">
@@ -301,46 +364,37 @@ const UserActivityLogs: React.FC = () => {
                 </div>
               </div>
 
-              {/* Stats Summary */}
-              <div className="row mb-4">
-                <div className="col-md-3">
-                  <div className="card bg-primary text-white text-center">
-                    <div className="card-body py-3">
-                      <h5 className="card-title mb-0">{filteredLogs.length}</h5>
-                      <p className="card-text mb-0">Total Activities</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-md-3">
-                  <div className="card bg-info text-white text-center">
-                    <div className="card-body py-3">
-                      <h5 className="card-title mb-0">
-                        {filteredLogs.filter((log) => log.action === "SEARCH_DRUG").length}
-                      </h5>
-                      <p className="card-text mb-0">Drug Searches</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-md-3">
-                  <div className="card bg-success text-white text-center">
-                    <div className="card-body py-3">
-                      <h5 className="card-title mb-0">
-                        {new Set(filteredLogs.map((log) => log.user)).size}
-                      </h5>
-                      <p className="card-text mb-0">Active Users</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-md-3">
-                  <div className="card bg-warning text-dark text-center">
-                    <div className="card-body py-3">
-                      <h5 className="card-title mb-0">
-                        {filteredLogs.filter((log) => log.action === "EXPORT_DATA").length}
-                      </h5>
-                      <p className="card-text mb-0">Data Exports</p>
-                    </div>
-                  </div>
-                </div>
+              {/* Stats Summary (enhanced) */}
+              <StatsCardStyles />
+              <div className="row g-3 mb-4">
+                <StatCard
+                  title="Total Activities"
+                  value={totalActivities}
+                  iconClass="ti ti-activity"
+                  gradientFrom="#4F46E5"   // indigo
+                  gradientTo="#8B5CF6"     // purple
+                />
+                <StatCard
+                  title="Drug Searches"
+                  value={drugSearches}
+                  iconClass="ti ti-search"
+                  gradientFrom="#0284C7"   // sky
+                  gradientTo="#06B6D4"     // cyan
+                />
+                <StatCard
+                  title="Active Users"
+                  value={activeUsers}
+                  iconClass="ti ti-users"
+                  gradientFrom="#059669"   // emerald
+                  gradientTo="#22C55E"     // green
+                />
+                <StatCard
+                  title="Data Exports"
+                  value={dataExports}
+                  iconClass="ti ti-download"
+                  gradientFrom="#F59E0B"   // amber
+                  gradientTo="#F97316"     // orange
+                />
               </div>
 
               {/* Logs Table */}

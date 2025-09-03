@@ -132,8 +132,30 @@ export interface Prescription {
   ingrdient: string;
   type: string;
   strengthUnit: string;
+  score: number;
+  status?: string;
+  statusDescription?: string;
+  additionalInfo?: string | null;
+  statusDate?: string;
+  submitedUser?: string;
+  approvedStatus: string;
+  priorAuthorizationStatus: string;
 }
+export interface ReportHistory{
+  id: number;
+  sourceDrugNDC: string;
+  targetDrugNDC: string;
+  insuranceRxId: number;
 
+  status: string;
+  statusDescription: string;
+  additionalInfo: string | null;
+
+  // Usually an ISO string from the API. Parse to Date if you prefer.
+  statusDate: string | Date;
+
+  userEmail: string | null;
+}
 export interface DrugInsuranceInfo {
   insuranceId: number;
   drugId: number;
@@ -170,14 +192,6 @@ export interface Bin {
   helpDeskNumber: string;
 }
 export interface DrugTransaction {
-   totalNetProfit:number;
-   totalHighestNet:number;
-   difference:number;
-
-  differencePerItem?: number;   // ← add this line
-  insuranceId?: string | number; // if it’s not already present
-  /** Allow legacy/mock name for now so mocks compile */
-  insurance?: string;
   date: string;
   scriptCode: string;
   rxNumber: string;
@@ -185,7 +199,7 @@ export interface DrugTransaction {
   prescriber: string;
   drugName: string;
   drugId: number;
-  //insuranceId: number;
+  insuranceId: number;
   insurancePayment: number;
   patientPayment: number;
   acquisitionCost: number;
@@ -331,7 +345,6 @@ export interface OrderReadDto {
   additionalCost: number;
   orderItemReadDtos: OrderItemReadDto[];
 }
-/*
 interface Question {
   questionId: string;
   questionText: string;
@@ -340,7 +353,7 @@ interface Question {
   selectedAnswers: string[];
   textAnswer: string;
 }
-/*
+
 interface Section {
   sectionTitle: string;
   questions: Question[];
@@ -350,4 +363,3 @@ interface FeedbackFormData {
   formTitle: string;
   sections: Section[];
 }
-  */

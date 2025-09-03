@@ -3,19 +3,34 @@ import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer';
 
 // https://vite.dev/config/
+
 export default defineConfig({
   plugins: [react()],
   server: {
-    
     proxy: {
-      "/api": {
-        target: "https://store.medisearchtool.com",
+      '/api': {
+        target: 'https://store.medisearchtool.com', // your backend
         changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        secure: false,                // ignore bad/expired TLS in dev
+        rewrite: (p) => p.replace(/^\/api/, ''),
+        // 👇 make refresh/auth cookies usable on localhost
+        cookieDomainRewrite: '',      // rewrites Set-Cookie: Domain=<anything> → Domain= (host-only: localhost)
+        cookiePathRewrite: '/',       // defensive; ensures Set-Cookie path is /
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            // Some servers set SameSite=None;Secure only. If you’re on http://localhost,
+            // cookie won’t stick. You either serve localhost over HTTPS or adjust backend.
+            // This log helps you verify cookies are coming through during dev:
+            const setCookie = proxyRes.headers['set-cookie'];
+            if (setCookie) {
+              // console.log('Set-Cookie from upstream:', setCookie);
+            }
+          });
+        },
       },
     },
   },
+
 
 
   build: {

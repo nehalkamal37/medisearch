@@ -216,8 +216,9 @@ const HelpSupportPage: React.FC = () => {
      
   <style>{`
     .content-with-sidebar {
-      margin-left: 230px; /* match your sidebar width */
+      margin-left: 290px; /* match your sidebar width */
       transition: margin-left .2s ease;
+      width:1010px;
     }
 
     /* On mobile, sidebar overlays, so remove margin */

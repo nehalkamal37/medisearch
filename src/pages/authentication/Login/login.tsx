@@ -1,27 +1,19 @@
 // src/pages/authentication/Login/login.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ImageWithBasePath from "../../../components/image-with-base-path";
 import { all_routes } from "../../../routes/all_routes";
 import { Eye, EyeOff, Mail } from "lucide-react";
-import axios from "axios";
+import axiosInstance from "../../../api/axiosInstance";
+import BaseUrlLoader, { loadConfig } from "../../../BaseUrlLoader";
+
+// ensure config is loaded before any API call
+await loadConfig();
 
 type PasswordField = "password";
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-
-  // ---- Local, auth-agnostic axios client ----
-  // In dev it uses /api (proxied by Vite) → no CORS.
-  // In prod it uses VITE_API_BASE_URL (fallback to live domain if not set).
-  const api = axios.create({
-    baseURL: import.meta.env.DEV
-      ? "/api"
-      : (import.meta.env.VITE_API_BASE_URL as string) ||
-        "https://store.medisearchtool.com",
-    withCredentials: false, // keep false during dev unless you really need cookies
-    headers: { "Content-Type": "application/json" },
-  });
 
   // ---- Form state ----
   const [email, setEmail] = useState<string>("");
@@ -40,40 +32,46 @@ const Login: React.FC = () => {
     setPasswordVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
+  const API_URL = `${BaseUrlLoader.API_BASE_URL}/user/login`;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setIsSubmitting(true);
 
     try {
-      // IMPORTANT: no full absolute URL here; use the instance baseURL
-      const response = await api.post("/user/login", { email, password });
+      // EXACT API + options you provided
+      const response = await axiosInstance.post(
+        API_URL,
+        { email, password },
+        { withCredentials: true }
+      );
 
-      // If your backend returns tokens, save them here
-      // Adjust keys to match your API’s response shape
-      const { accessToken, role, branchId, classType } = response.data || {};
-      if (accessToken) localStorage.setItem("accessToken", accessToken);
-      if (role != null) localStorage.setItem("role", String(role));
-      if (branchId != null) localStorage.setItem("branchId", String(branchId));
-      if (classType != null) localStorage.setItem("classType", String(classType));
-
-      // Go to whatever route you want after login
-      const NEXT = (all_routes as any)?.drugSearch || (all_routes as any)?.dashboard || "/dashboard";
-      navigate(NEXT);
-    } catch (err: any) {
-      console.error("Login failed:", err);
-      // Nice message for common cases:
-      if (err?.response?.status === 401) {
-        setErrorMsg("Invalid credentials. Please try again.");
-      } else if (err?.message?.includes("Network Error")) {
-        setErrorMsg("Network error. Check your API/proxy settings.");
+      if (response.status === 200) {
+        const { accessToken, role, branchId, classType } = response.data || {};
+        // same storage keys
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("role", role);
+        localStorage.setItem("branchId", branchId);
+        localStorage.setItem("classType", classType);
+        // same redirect
+        navigate("/search1");
       } else {
-        setErrorMsg("Login failed. Please check your inputs and try again.");
+        setErrorMsg("Invalid credentials. Please try again.");
       }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setErrorMsg("Login failed. Please check your inputs and try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    // optional: focus the heading for a11y
+    const h = document.getElementById("login-title");
+    h?.focus();
+  }, []);
 
   return (
     <>
@@ -111,7 +109,13 @@ const Login: React.FC = () => {
                   </div>
 
                   <div className="text-center mb-4">
-                    <h4 className="fw-bold text-dark mb-1">Hi, Welcome Back</h4>
+                    <h4
+                      id="login-title"
+                      tabIndex={-1}
+                      className="fw-bold text-dark mb-1"
+                    >
+                      Hi, Welcome Back
+                    </h4>
                     <p className="text-muted">Sign in to continue to your account</p>
                   </div>
 
@@ -172,7 +176,9 @@ const Login: React.FC = () => {
                           type="button"
                           className="input-group-text bg-white border-start-0"
                           onClick={() => togglePasswordVisibility("password")}
-                          aria-label={passwordVisibility.password ? "Hide password" : "Show password"}
+                          aria-label={
+                            passwordVisibility.password ? "Hide password" : "Show password"
+                          }
                         >
                           {passwordVisibility.password ? <EyeOff /> : <Eye />}
                         </button>

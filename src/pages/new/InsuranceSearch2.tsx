@@ -485,7 +485,7 @@ const InsuranceSearch2: React.FC = () => {
   }
 
   return (
-    <div className="container py-4">
+    <div className="container mid py-4">
       <PageMeta
         title="Insurance Search (Drug Class)"
         description="Search by BIN → PCN → Rx Group, then by Drug Class — using public endpoints only."
@@ -817,6 +817,14 @@ const InsuranceSearch2: React.FC = () => {
           </div>
         </div>
       </div>
+        
+    <style>{`
+    .mid {
+      margin-left: 220px; /* match your sidebar width */
+     
+    }
+  `}
+</style>
     </div>
   );
 };

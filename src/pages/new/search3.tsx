@@ -1,8 +1,9 @@
+// src/pages/Search3.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
 import PageMeta from "../../components/PageMeta";
 import debounce from "debounce";
-import axios from "axios";
+import axiosInstance from "../../api/axiosInstance";
 import BaseUrlLoader, { loadConfig } from "../../BaseUrlLoader";
 
 /** ===== Types ===== */
@@ -27,30 +28,35 @@ interface Prescription {
   net?: number;
   ndc?: string;
   drugName?: string;
+  drugClassId?: number;
+  insuranceId?: number;
+  pcn?: string;
+  bin?: string;
+  binFullName?: string;
+}
+interface SearchLog {
+  rxgroupId: number;
+  binId: number;
+  pcnId: number;
+  drugNDC: string;
+  date: string;
+  searchType: string;
 }
 
-/** ===== publicApi (no auth, no cookies) ===== */
-const makePublicApi = () =>
-  axios.create({
-    baseURL: BaseUrlLoader.API_BASE_URL,
-    withCredentials: false, // do NOT send cookies
-    // IMPORTANT: do not add Authorization headers here
-  });
+const PAGE_SIZE = 20;
 
 const Search3: React.FC = () => {
-  /** Bootstrap config + public client */
+  /** Bootstrap config */
   const [ready, setReady] = useState(false);
-  const publicApiRef = useRef<ReturnType<typeof makePublicApi> | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        await loadConfig(); // ensures BaseUrlLoader.API_BASE_URL is set
+        await loadConfig(); // يضمن ضبط BaseUrlLoader.API_BASE_URL لو محتاجينه في أماكن تانية
       } catch {
-        // probably already loaded
+        /* غالبًا متحمّل قبل كده */
       } finally {
-        publicApiRef.current = makePublicApi();
         setReady(true);
       }
     })();
@@ -69,7 +75,6 @@ const Search3: React.FC = () => {
   const [drugSearchQuery, setDrugSearchQuery] = useState("");
   const [showDrugSuggestions, setShowDrugSuggestions] = useState(false);
   const [drugs, setDrugs] = useState<DrugModel[]>([]);
-  const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingDrugs, setIsLoadingDrugs] = useState(false);
   const drugDropdownRef = useRef<HTMLUListElement | null>(null);
@@ -81,7 +86,7 @@ const Search3: React.FC = () => {
   const [showNdcSuggestions, setShowNdcSuggestions] = useState(false);
   const [selectedNdc, setSelectedNdc] = useState("");
 
-  // Details (GET /drug/GetDetails via publicApi)
+  // Details (GET /drug/GetDetails عبر axiosInstance)
   const [netDetails, setNetDetails] = useState<Prescription | null>(null);
 
   const hideAllSuggestions = () => {
@@ -90,15 +95,13 @@ const Search3: React.FC = () => {
     setShowNdcSuggestions(false);
   };
 
-  /** Fetch RxGroups (PUBLIC) */
+  /** Fetch RxGroups (AUTH via axiosInstance) */
   useEffect(() => {
-    if (!ready || !publicApiRef.current) return;
+    if (!ready) return;
     (async () => {
       try {
         setApiError(null);
-        const { data } = await publicApiRef.current.get<RxGroupModel[]>(
-          "/Insurance/GetAllRxGroups"
-        );
+        const { data } = await axiosInstance.get<RxGroupModel[]>("/Insurance/GetAllRxGroups");
         setRxGroups(Array.isArray(data) ? data : []);
       } catch (e: any) {
         if (e?.response?.status === 401 || e?.response?.status === 403) {
@@ -126,10 +129,9 @@ const Search3: React.FC = () => {
     return q ? ndcList.filter(n => n.toLowerCase().includes(q)) : ndcList;
   }, [ndcList, ndcSearchQuery]);
 
-  /** Drug search (PUBLIC) */
+  /** Drug search (AUTH via axiosInstance) */
   const fetchDrugsPage = useCallback(
     async (page: number, append = false) => {
-      if (!publicApiRef.current) return;
       if (!drugSearchQuery.trim()) {
         setDrugs([]);
         setCurrentPage(1);
@@ -138,6 +140,7 @@ const Search3: React.FC = () => {
 
       let url = "";
       if (limitSearch && selectedRxGroup) {
+        // نفس endpoint بتاعك بالاسم الصحيح (لاحظ Pagintated)
         url = `/drug/GetDrugsByInsuranceNamePagintated?insurance=${encodeURIComponent(
           selectedRxGroup.rxGroup
         )}&drugName=${encodeURIComponent(drugSearchQuery)}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
@@ -150,7 +153,7 @@ const Search3: React.FC = () => {
       try {
         setApiError(null);
         setIsLoadingDrugs(true);
-        const { data } = await publicApiRef.current.get<DrugModel[]>(url);
+        const { data } = await axiosInstance.get<DrugModel[]>(url);
         const payload = Array.isArray(data) ? data : [];
         setDrugs(prev => (append ? [...prev, ...payload] : payload));
         setCurrentPage(page);
@@ -223,7 +226,7 @@ const Search3: React.FC = () => {
     setDrugSearchQuery(drug.name);
     setShowDrugSuggestions(false);
 
-    // collect NDCs for this name from current results (no extra API)
+    // اجمع الـ NDCs لنفس الاسم من النتائج الحالية
     const ndcs = Array.from(new Set(drugs.filter(d => d.name === drug.name).map(d => d.ndc)));
     setNdcList(ndcs);
     setSelectedNdc(ndcs[0] ?? "");
@@ -236,26 +239,30 @@ const Search3: React.FC = () => {
     setShowNdcSuggestions(false);
   };
 
-  /** Fetch Details (PUBLIC) when NDC + RxGroup are ready */
+  /** Fetch Details (AUTH) when NDC + RxGroup are ready */
   useEffect(() => {
     (async () => {
-      if (!publicApiRef.current) return;
       if (!selectedNdc || !selectedRxGroup) {
         setNetDetails(null);
         return;
       }
       try {
         setApiError(null);
-        const { data } = await publicApiRef.current.get<Prescription>(
+        const { data } = await axiosInstance.get<Prescription>(
           `/drug/GetDetails?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedRxGroup.id}`
         );
         setNetDetails(data ?? null);
+
+        // إحفظ شوية حاجات زي ما كنت عامل
+        if (data) {
+          localStorage.setItem("selectedPcn", data.pcn || "");
+          localStorage.setItem("selectedBin", `${data?.binFullName || ""} - ${data?.bin || ""}`);
+        }
       } catch (e: any) {
+        setNetDetails(null);
         if (e?.response?.status === 401 || e?.response?.status === 403) {
-          setNetDetails(null);
           setApiError("Net price is restricted by the API (401/403).");
         } else {
-          setNetDetails(null);
           setApiError("Failed to load drug details.");
         }
       }
@@ -288,6 +295,44 @@ const Search3: React.FC = () => {
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
+  /** Log before navigate */
+  const logAndGo = useCallback(async () => {
+    try {
+      const details: SearchLog = {
+        rxgroupId: selectedRxGroup?.id || 0,
+        binId: 0,
+        pcnId: 0,
+        drugNDC: selectedDrug?.ndc || selectedNdc || "",
+        date: new Date().toISOString(),
+        searchType: "Search By RXGroup",
+      };
+      localStorage.setItem("searchLogDetails", JSON.stringify(details));
+
+      const action = `User Search for that NDC: ${details.drugNDC}
+using search Type: ${details.searchType}
+with the following insurance Data:
+BinId: ${details.binId},
+PCN: ${details.pcnId},
+RxGroup: ${details.rxgroupId}`;
+
+      await axiosInstance.post("/order/ViewDrugDetailsLog", JSON.stringify(action), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      // لو حصل خطأ في اللوج هنكمّل برضه للديتيلز
+      console.warn("log error:", e);
+    }
+
+    if (selectedRxGroup) {
+      localStorage.setItem("selectedRx", selectedRxGroup.rxGroup);
+    }
+
+    // روح لصفحة تفاصيل الدوا
+    window.location.href = `/drug/${selectedDrug?.id}?ndc=${encodeURIComponent(
+      selectedNdc
+    )}&insuranceId=${selectedRxGroup?.id}`;
+  }, [selectedDrug, selectedNdc, selectedRxGroup]);
+
   if (!ready) {
     return (
       <div className="container py-5 text-center">
@@ -297,10 +342,10 @@ const Search3: React.FC = () => {
   }
 
   return (
-    <div className="container py-4">
+    <div className="container mid py-4">
       <PageMeta
-        title="Rx Group → Drug → NDC (Public API)"
-        description="Search by Rx Group, then drug and NDC — using public (unauthenticated) API calls."
+        title="Rx Group → Drug → NDC (Authorized API)"
+        description="Search by Rx Group, then drug and NDC — using authorized API calls (axiosInstance)."
       />
 
       <div className="d-flex flex-column align-items-center text-center mb-4">
@@ -313,10 +358,11 @@ const Search3: React.FC = () => {
             <div className="card-header bg- text-white py-4 px-5">
               <h4 className="mb-0 fw-semibold">
                 <i className="ti ti-users me-2"></i>
-                RxGroup, Drugs & NDC (Public API)
+                RxGroup, Drugs & NDC (Authorized API)
               </h4>
               <p className="mb-0 opacity-75 mt-2">
-                All reads use a no-auth Axios client. {apiError && <span className="ms-2 text-warning">{apiError}</span>}
+                All reads use your auth Axios client.{" "}
+                {apiError && <span className="ms-2 text-warning">{apiError}</span>}
               </p>
             </div>
 
@@ -333,7 +379,10 @@ const Search3: React.FC = () => {
                     className="form-check-input"
                     type="checkbox"
                     checked={limitSearch}
-                    onChange={() => { clearAll(); setLimitSearch(!limitSearch); }}
+                    onChange={() => {
+                      clearAll();
+                      setLimitSearch(!limitSearch);
+                    }}
                     style={{ width: "2.5em" }}
                   />
                 </div>
@@ -355,11 +404,18 @@ const Search3: React.FC = () => {
                     placeholder="e.g., Medi-Cal…"
                     value={rxGroupSearchQuery}
                     onChange={(e) => setRxGroupSearchQuery(e.target.value)}
-                    onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }}
+                    onFocus={() => {
+                      hideAllSuggestions();
+                      setShowRxGroupSuggestions(true);
+                    }}
                     style={{ height: "52px" }}
                   />
                   {(rxGroupSearchQuery || selectedRxGroup) && (
-                    <button className="btn btn-outline-secondary d-flex align-items-center" onClick={clearAll} style={{ height: "52px" }}>
+                    <button
+                      className="btn btn-outline-secondary d-flex align-items-center"
+                      onClick={clearAll}
+                      style={{ height: "52px" }}
+                    >
                       <i className="ti ti-x" />
                     </button>
                   )}
@@ -370,7 +426,7 @@ const Search3: React.FC = () => {
                     className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                     style={{ maxHeight: 240, overflowY: "auto", zIndex: 1050 }}
                   >
-                    {filteredRxGroups.map(rg => (
+                    {filteredRxGroups.map((rg) => (
                       <li
                         key={rg.id}
                         role="option"
@@ -405,7 +461,10 @@ const Search3: React.FC = () => {
                         placeholder="e.g., Metformin"
                         value={drugSearchQuery}
                         onChange={(e) => setDrugSearchQuery(e.target.value)}
-                        onFocus={() => { hideAllSuggestions(); setShowDrugSuggestions(true); }}
+                        onFocus={() => {
+                          hideAllSuggestions();
+                          setShowDrugSuggestions(true);
+                        }}
                         style={{ height: "52px" }}
                       />
                     </div>
@@ -416,7 +475,7 @@ const Search3: React.FC = () => {
                         className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
                         style={{ maxHeight: 260, overflowY: "auto", zIndex: 1050 }}
                       >
-                        {uniqueDrugNames.map(d => (
+                        {uniqueDrugNames.map((d) => (
                           <li
                             key={d.id}
                             role="option"
@@ -458,7 +517,10 @@ const Search3: React.FC = () => {
                           placeholder="Type to filter NDCs…"
                           value={ndcSearchQuery}
                           onChange={(e) => setNdcSearchQuery(e.target.value)}
-                          onFocus={() => { hideAllSuggestions(); setShowNdcSuggestions(true); }}
+                          onFocus={() => {
+                            hideAllSuggestions();
+                            setShowNdcSuggestions(true);
+                          }}
                           style={{ height: "52px" }}
                         />
                       </div>
@@ -490,7 +552,7 @@ const Search3: React.FC = () => {
                 </>
               )}
 
-              {/* Net preview (PUBLIC /drug/GetDetails) */}
+              {/* Net preview (/drug/GetDetails) */}
               {selectedDrug && selectedNdc && (
                 <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
                   <div className="bg-white p-3 rounded-3">
@@ -505,18 +567,12 @@ const Search3: React.FC = () => {
                 </div>
               )}
 
-              {/* Action (NO protected logging here) */}
+              {/* Action + Log */}
               {selectedDrug && selectedNdc && selectedRxGroup && (
                 <button
                   type="button"
                   className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
-                  onClick={() => {
-                    // Keep it simple and public: just navigate
-                    localStorage.setItem("selectedRx", selectedRxGroup.rxGroup);
-                    window.location.href = `/drug/${selectedDrug.id}?ndc=${encodeURIComponent(
-                      selectedNdc
-                    )}&insuranceId=${selectedRxGroup.id}`;
-                  }}
+                  onClick={logAndGo}
                 >
                   <i className="ti ti-file-text me-2"></i>
                   View Drug Details
@@ -526,6 +582,14 @@ const Search3: React.FC = () => {
           </div>
         </div>
       </div>
+        
+    <style>{`
+    .mid {
+      margin-left: 220px; /* match your sidebar width */
+     
+    }
+  `}
+</style>
     </div>
   );
 };

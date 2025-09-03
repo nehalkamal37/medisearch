@@ -14,6 +14,7 @@ import LandingPage from "../pages/new/home";
 import HowItWorksModern from "../pages/new/help";
 import UserActivityLogs from "../pages/new/logs";
 
+
 const ManageInvoicesDetails = React.lazy(
   () =>
     import(
@@ -551,7 +552,6 @@ export const publicRoutes = [
   { path: route.insuranceSearch, element: <InsuranceSearch /> },
   { path: route.search3, element: <Search3 /> },
   { path: route.search2, element: <InsuranceSearch2 /> },
-    { path: route.dashboards, element: <MainDashboard /> },
     { path: route.dashboard1, element: <FirstDashboard /> },
     { path: route.dashboard2, element: <SecondDashBoard /> },
     { path: route.dashboard3, element: <ThirdDashBoard data={[]} /> },
@@ -560,6 +560,7 @@ export const publicRoutes = [
 { path:"/home", element: <LandingPage />} ,
 { path:"/help", element: <HowItWorksModern />} ,
 { path:"/logs", element: <UserActivityLogs />} ,
+{ path:"/main", element: <MainDashboard />} ,
 
 
 

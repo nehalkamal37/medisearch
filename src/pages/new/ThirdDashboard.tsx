@@ -1,177 +1,37 @@
+// src/pages/Dashboard.tsx  (ThirdDashboard - mismatching + same Rx/PCN API behavior as main page)
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { DrugTransaction } from "../../types";
 import { motion } from "framer-motion";
+import axiosInstance from "../../api/axiosInstance";
+import { loadConfig } from "../../BaseUrlLoader";
 
-/* ===================== CountUp + KPI Card ===================== */
-function useCountUp(value: number, duration = 1000) {
-  const [display, setDisplay] = React.useState(0);
-  const lastRef = React.useRef(0);
-  React.useEffect(() => {
-    const from = lastRef.current;
-    const to = Number.isFinite(value) ? value : 0;
-    const start = performance.now();
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-    let raf = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = easeOutCubic(t);
-      setDisplay(from + (to - from) * eased);
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else lastRef.current = to;
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [value, duration]);
-  return display;
-}
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0);
-const fmtInt = (n: number) => Math.round(n || 0).toLocaleString();
+await loadConfig();
 
-function KpiCard({
-  title, value, iconClass, variant = "primary", isMoney = false, duration = 900,
-}: {
-  title: string; value: number; iconClass: string;
-  variant?: "primary" | "danger" | "success" | "purple"; isMoney?: boolean; duration?: number;
-}) {
-  const animated = useCountUp(value, duration);
-  const bg =
-    variant === "primary" ? "bg-primary" :
-    variant === "danger"  ? "bg-danger"  :
-    variant === "success" ? "bg-success" : "bg-purple";
-  return (
-    <div className="card pb-2 h-100">
-      <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-        <div className="d-flex align-items-center overflow-hidden">
-          <span className={`avatar ${bg} rounded-circle flex-shrink-0`}>
-            <i className={`${iconClass} fs-20`} />
-          </span>
-          <div className="ms-2 overflow-hidden">
-            <p className="mb-1 text-truncate">{title}</p>
-            <h5 className="mb-0">{isMoney ? fmtCurrency(animated) : fmtInt(animated)}</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-/* ============================================================= */
-type RawDrugTxn = Partial<DrugTransaction> & {
-  DifferencePerItem?: number;  // legacy key allowed in raw data
-  insurance?: string;          // legacy string you used in some rows
-};
-
-const RAW_THIRD_DASHBOARD: RawDrugTxn[] = [
-  // …your existing objects, keep DifferencePerItem and insurance as-is…
-];
-
-const MOCK_THIRD_DASHBOARD: DrugTransaction[] = RAW_THIRD_DASHBOARD.map((r) => ({
-  // copy only the fields you actually use (keeps types tight)
-  date: r.date!,
-  scriptCode: r.scriptCode!,
-  rxNumber: r.rxNumber!,
-  user: r.user!,
-  drugName: r.drugName!,
-  pf: r.pf!,
-  prescriber: r.prescriber!,
-  quantity: r.quantity ?? 0,
-  acquisitionCost: r.acquisitionCost ?? 0,
-  discount: r.discount ?? 0,
-  insurancePayment: r.insurancePayment ?? 0,
-  patientPayment: r.patientPayment ?? 0,
-  ndcCode: r.ndcCode!,
-  netProfit: r.netProfit ?? 0,
-  drugClass: r.drugClass!,
-  branchCode: r.branchCode!,
-  insuranceRx: r.insuranceRx!,
-  rxGroupId: r.rxGroupId!,
-  binId: r.binId!,
-  binName: r.binName!,
-  binCode: r.binCode!,
-  pcnId: r.pcnId!,
-  pcnName: r.pcnName!,
-  drugId: r.drugId!,
-  // insuranceId: r.insuranceId ?? (r.insurance as any) ?? "",
-
-  netProfitPerItem: r.netProfitPerItem ?? 0,
-  highestNetProfitPerItem: r.highestNetProfitPerItem ?? 0,
-  totalNetProfit: r.totalNetProfit ?? r.netProfit ?? 0,
-  totalHighestNet: r.totalHighestNet ?? r.highestNet ?? 0,
-  difference: r.difference ?? ((r.highestNet ?? 0) - (r.netProfit ?? 0)),
-  // canonical camelCase for table key and sorting
-/*  differencePerItem:
-    r.differencePerItem ??
-    r.DifferencePerItem ??
-    ((r.highestNetProfitPerItem ?? 0) - (r.netProfitPerItem ?? 0)),
-*/
-  highestNet: r.highestNet ?? 0,
-  highestDrugNDC: r.highestDrugNDC!,
-  highestDrugName: r.highestDrugName!,
-  highestDrugId: r.highestDrugId!,
-  highestScriptCode: r.highestScriptCode!,
-  highestQuantity: r.highestQuantity ?? 0,
-  highestRxGroupId: r.highestRxGroupId!,
-  highestInsuranceRx: r.highestInsuranceRx!,
-  highestBinId: r.highestBinId!,
-  highestBINName: r.highestBINName!,
-  highestBINCode: r.highestBINCode!,
-  highestPcnId: r.highestPcnId!,
-  highestPCNName: r.highestPCNName!,
-  highestScriptDate: r.highestScriptDate!,
-
-  
-  // ensure insuranceId and differencePerItem are populated:
-  insuranceId: r.insuranceId ?? (r.insurance as any) ?? "",
-  differencePerItem:
-    r.differencePerItem ??
-    (r as any).DifferencePerItem ??
-    ((r.highestNetProfitPerItem ?? 0) - (r.netProfitPerItem ?? 0)),
-
-  // ✅ add the missing required fields with safe defaults:
-  remainingStock: r.remainingStock ?? 0,
-  highestRemainingStock: r.highestRemainingStock ?? 0,
-
-}));
-
-/* ----------------------------- helpers ----------------------------- */
-const toSafeDate = (d: any) => {
-  if (!d) return new Date("Invalid");
-  const s = typeof d === "string" ? d.replace(" ", "T") : d;
-  return new Date(s);
-};
+/* ---------- tiny utils ---------- */
+const toSafeDate = (d: any) => new Date(typeof d === "string" ? d.replace(" ", "T") : d);
 const isValidDate = (d: any) => !isNaN(toSafeDate(d).getTime());
 const monthKey = (d: any) => (isValidDate(d) ? toSafeDate(d).toISOString().slice(0, 7) : "");
 const formatDate = (d: any, locale = "en-US") => {
   const dt = toSafeDate(d);
   return isValidDate(dt) ? dt.toLocaleDateString(locale) : "-";
 };
-const titleCase = (s: string) =>
-  (s || "").split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ").replace(/[.,]/g, "");
-const monthLabel = (ym: string) => {
-  if (!ym) return "";
-  const [y, m] = ym.split("-").map(Number);
-  const d = new Date(y, (m || 1) - 1, 1);
-  return d.toLocaleString("en-US", { month: "short", year: "numeric" });
-};
+const num = (n?: number) => (Number.isFinite(n as number) ? (n as number) : 0);
+const fmt = (n?: number, digits = 3) => num(n).toFixed(digits);
 
-/* ------------------------------ mocks ------------------------------ */
-
-/* ----------------------------- component --------------------------- */
 const insurance_mapping: Record<string, string> = {
-  AL: "Aetna (AL)", BW: "aetna (BW)", AD: "Aetna Medicare (AD)", AF: "Anthem BCBS (AF)",
-  DS: "Blue Cross Blue Shield (DS)", CA: "blue shield medicare (CA)", FQ: "Capital Rx (FQ)",
-  BF: "Caremark (BF)", ED: "CatalystRx (ED)", AM: "Cigna (AM)", BO: "Default Claim Format (BO)",
-  AP: "Envision Rx Options (AP)", CG: "Express Scripts (CG)", BI: "Horizon (BI)",
-  AJ: "Humana Medicare (AJ)", BP: "informedRx (BP)", AO: "MEDCO HEALTH (AO)",
-  AC: "MEDCO MEDICARE PART D (AC)", AQ: "MEDGR (AQ)", CC: "MY HEALTH LA (CC)",
-  AG: "Navitus Health Solutions (AG)", AH: "OptumRx (AH)", AS: "PACIFICARE LIFE AND H (AS)",
-  FJ: "Paramount Rx (FJ)", "X ": "PF - DEFAULT (X )", EA: "Pharmacy Data Management (EA)",
-  DW: "phcs (DW)", AX: "PINNACLE (AX)", BN: "Prescription Solutions (BN)",
-  AA: "Tri-Care Express Scripts (AA)", AI: "United Healthcare (AI)",
+  AL:"Aetna (AL)", BW:"aetna (BW)", AD:"Aetna Medicare (AD)", AF:"Anthem BCBS (AF)",
+  DS:"Blue Cross Blue Shield (DS)", CA:"blue shield medicare (CA)", FQ:"Capital Rx (FQ)",
+  BF:"Caremark (BF)", ED:"CatalystRx (ED)", AM:"Cigna (AM)", BO:"Default Claim Format (BO)",
+  AP:"Envision Rx Options (AP)", CG:"Express Scripts (CG)", BI:"Horizon (BI)",
+  AJ:"Humana Medicare (AJ)", BP:"informedRx (BP)", AO:"MEDCO HEALTH (AO)",
+  AC:"MEDCO MEDICARE PART D (AC)", AQ:"MEDGR (AQ)", CC:"MY HEALTH LA (CC)",
+  AG:"Navitus Health Solutions (AG)", AH:"OptumRx (AH)", AS:"PACIFICARE LIFE AND H (AS)",
+  FJ:"Paramount Rx (FJ)", "X ":"PF - DEFAULT (X )", EA:"Pharmacy Data Management (EA)",
+  DW:"phcs (DW)", AX:"PINNACLE (AX)", BN:"Prescription Solutions (BN)",
+  AA:"Tri-Care Express Scripts (AA)", AI:"United Healthcare (AI)",
 };
 
-/* ===== Preferences-style tile for each filter ===== */
 function FilterTile({ label, children }: React.PropsWithChildren<{ label: string }>) {
   return (
     <div className="col-xxl-4 col-xl-4 col-sm-6">
@@ -183,536 +43,655 @@ function FilterTile({ label, children }: React.PropsWithChildren<{ label: string
   );
 }
 
-const ThirdDashBoard: React.FC<{ data?: DrugTransaction[] }> = ({ data }) => {
-  // KPI layout toggle (row/grid)
-  const [kpiLayout, setKpiLayout] = useState<"row" | "grid">("row");
+/* ---------- animated KPI helpers (UI only) ---------- */
+const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+function useCountUp(target: number, duration = 900, decimals = 0) {
+  const [value, setValue] = useState(0);
   useEffect(() => {
-    const saved = localStorage.getItem("third_kpiLayout");
-    if (saved === "row" || saved === "grid") setKpiLayout(saved);
-  }, []);
-  useEffect(() => {
-    localStorage.setItem("third_kpiLayout", kpiLayout);
-  }, [kpiLayout]);
-
-  // Source (use mocks if empty)
-  const sourceData = useMemo<DrugTransaction[]>(
-    () => (data && data.length ? data : MOCK_THIRD_DASHBOARD),
-    [data]
-  );
-
-  // State
-  const [latestScripts, setLatestScripts] = useState<DrugTransaction[]>([]);
-  const [filteredData, setFilteredData] = useState<DrugTransaction[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState<{ key: keyof DrugTransaction; direction: "ascending" | "descending" } | null>(null);
-
-  // Filters
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedBranch, setSelectedBranch] = useState("");
-  const [selectedInsurance, setSelectedInsurance] = useState("");
-  const [selectedPrescriber, setSelectedPrescriber] = useState("");
-  const [selectedUser, setSelectedUser] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-
-  // KPIs
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalNet, setTotalNet] = useState(0);
-  const [belowNetPriceCount, setBelowNetPriceCount] = useState(0);
-void belowNetPriceCount;
-  const rowsPerPage = 10;
-
-  // Keep only mismatching NDC
-  useEffect(() => {
-    setLatestScripts(sourceData.filter((r) => r.ndcCode !== r.highestDrugNDC));
-  }, [sourceData]);
-
-  // Filter + sort + aggregate
-  useEffect(() => {
-    let rows = [...latestScripts];
-
-    if (sortConfig) {
-      const { key, direction } = sortConfig;
-      rows.sort((a, b) => {
-        const va = (a as any)[key], vb = (b as any)[key];
-        if (va == null && vb == null) return 0;
-        if (va == null) return 1;
-        if (vb == null) return -1;
-        if (va < vb) return direction === "ascending" ? -1 : 1;
-        if (va > vb) return direction === "ascending" ? 1 : -1;
-        return 0;
-      });
-    }
-
-    rows = rows.filter((item) => {
-      const m = monthKey(item.date as any);
-      return (
-        (!selectedClass || item.drugClass === selectedClass) &&
-        (!selectedInsurance || item.insuranceRx === selectedInsurance) &&
-        (!selectedPrescriber || item.prescriber === selectedPrescriber) &&
-        (!selectedUser || item.user === selectedUser) &&
-        (!selectedBranch || item.branchCode === selectedBranch) &&
-        (!selectedMonth || m === selectedMonth)
-      );
-    });
-
-    setFilteredData(rows);
-
-    const below = rows.filter((r) => (r.netProfit ?? 0) < (r.highestNet ?? 0)).length;
-    const rev = rows.reduce((s, r) => s + (r.netProfit ?? 0), 0);
-    const best = rows.reduce((s, r) => s + (r.highestNet ?? 0), 0);
-    setBelowNetPriceCount(below);
-    setTotalRevenue(+rev.toFixed(2));
-    setTotalNet(+best.toFixed(2));
-    setCurrentPage(1);
-  }, [
-    latestScripts,
-    sortConfig,
-    selectedClass,
-    selectedInsurance,
-    selectedPrescriber,
-    selectedUser,
-    selectedBranch,
-    selectedMonth,
-  ]);
-
-  const requestSort = (key: keyof DrugTransaction) =>
-    setSortConfig((prev) =>
-      !prev || prev.key !== key
-        ? { key, direction: "ascending" }
-        : { key, direction: prev.direction === "ascending" ? "descending" : "ascending" }
-    );
-
-  // Paging
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
-  const currentRecords = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  /* -------- options for filter tiles -------- */
-  const months = useMemo(
-    () => Array.from(new Set(latestScripts.map(i => monthKey((i as any).date))))
-            .sort()
-            .map(m => ({ value: m, label: monthLabel(m) || m })),
-    [latestScripts]
-  );
-  const classesOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.drugClass))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const insurancesOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.insuranceRx))]
-          .sort()
-          .map(ins => ({ value: String(ins), label: ins === "  " ? "MARCOG" : (insurance_mapping[String(ins)] || String(ins)) })),
-    [latestScripts]
-  );
-  const prescribersOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.prescriber))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const usersOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.user))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-  const branchesOpts = useMemo(
-    () => [...new Set(latestScripts.map(i => i.branchCode))].sort().map(x => ({ value: String(x), label: String(x) })),
-    [latestScripts]
-  );
-
-  // CSV
-  const downloadCSV = () => {
-    const headers = [
-      "Date","Script","Rx Group","Drug Class","Drug Name","NDC Code","Prescriber",
-      "Net Profit","Highest Net","Difference","Highest NDC","Highest Drug",
-    ];
-    const rows = filteredData.map((item) => [
-      toSafeDate(item.date as any).toLocaleDateString("en-US"),
-      item.scriptCode,
-      item.insuranceRx,
-      item.drugClass,
-      item.drugName,
-      item.ndcCode,
-      titleCase(item.prescriber as any),
-      (item.netProfit ?? 0).toFixed(2),
-      item.highestNet ?? 0,
-      ((item.highestNet ?? 0) - (item.netProfit ?? 0)).toFixed(2),
-      item.highestDrugNDC,
-      item.highestDrugName,
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "mismatching_prescriptions.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const sortIcon = (k: keyof DrugTransaction) => {
-    if (!sortConfig || sortConfig.key !== k) return "ti ti-arrows-sort text-muted";
-    return sortConfig.direction === "ascending" ? "ti ti-arrow-up" : "ti ti-arrow-down";
-  };
-
-  const resetFilters = () => {
-    setSelectedMonth(""); setSelectedClass(""); setSelectedInsurance("");
-    setSelectedPrescriber(""); setSelectedUser(""); setSelectedBranch("");
-  };
-
-  const normalizeName = (name: string) => titleCase(name || "");
-
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const step = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = easeOutCubic(p);
+      const current = from + (target - from) * eased;
+      setValue(+current.toFixed(decimals));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, decimals]);
+  return value;
+}
+function formatNumber(n: number, decimals = 0) {
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+type StatProps = {
+  title: string;
+  value: number;
+  prefix?: string;
+  decimals?: number;
+  icon: string;     // Tabler icon class e.g. "ti-cash"
+  accent: "primary" | "danger" | "success" | "warning";
+  colClass?: string;
+};
+const StatCard: React.FC<StatProps> = ({ title, value, prefix = "", decimals = 0, icon, accent, colClass }) => {
+  const val = useCountUp(value, 900, decimals);
   return (
-    <motion.div>
-      <div className="page-wrapper" id="main-content">
-        <div className="content">
-          <h3 className="text-4xl font-extrabold text-blue-700 dark:text-blue-400 mb-4 text-center">
-            MisMatching Prescriptions (NDC ≠ Best NDC)
-          </h3>
-
-          {/* ===== KPIs + layout toggle ===== */}
-          <div className="d-flex align-items-center justify-content-between mb-2">
-            <span className="text-muted small">Overview</span>
-            <div className="btn-group">
-              <button
-                type="button"
-                className={`btn btn-sm btn-outline-light ${kpiLayout === "row" ? "active" : ""}`}
-                title="1 × 3"
-                onClick={() => setKpiLayout("row")}
-              >
-                <i className="ti ti-layout-navbar" />
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm btn-outline-light ${kpiLayout === "grid" ? "active" : ""}`}
-                title="2 × 2"
-                onClick={() => setKpiLayout("grid")}
-              >
-                <i className="ti ti-layout-grid" />
-              </button>
+    <motion.div
+      className={`${colClass || "col-xxl-3 col-lg-3 col-md-6"} d-flex`}
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 240, damping: 18 }}
+    >
+      <div className="card stat-card border-0 shadow-sm w-100">
+        <div className={`stat-accent bg-${accent}`} />
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-start">
+            <div className="pe-3">
+              <p className="text-muted text-uppercase fw-semibold mb-2 small">{title}</p>
+              <h3 className="fw-bold mb-0">
+                {prefix}{formatNumber(val, decimals)}
+              </h3>
+            </div>
+            <div className={`stat-icon text-${accent}`}>
+              <i className={`ti ${icon}`} />
             </div>
           </div>
-
-          <div className="row g-3 mb-3">
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-4 col-md-6 d-flex"}>
-              <KpiCard title="Total MisMatches" value={filteredData.length} iconClass="ti ti-pill" variant="primary" />
-            </div>
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-4 col-md-6 d-flex"}>
-              <KpiCard title="Best Total Estimated Revenue" value={totalNet} iconClass="ti ti-chart-line" variant="success" isMoney duration={1100} />
-            </div>
-            <div className={kpiLayout === "grid" ? "col-xl-6 col-md-6 d-flex" : "col-xl-4 col-md-6 d-flex"}>
-              <KpiCard title="Current Total Revenue" value={totalRevenue} iconClass="ti ti-chart-bar" variant="purple" isMoney duration={1200} />
-            </div>
-          </div>
-
-          {/* ===== Filters (Preferences-style tiles) ===== */}
-          <div className="card mb-3">
-            <div className="card-header border-0 pb-1">
-              <h5 className="mb-0 pt-2">Filters</h5>
-            </div>
-            <div className="card-body">
-              <div className="row row-gap-4">
-                <FilterTile label="Month">
-                  <select className="form-select form-select-sm" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
-                    <option value="">All</option>
-                    {months.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FilterTile>
-
-                <FilterTile label="Drug Class">
-                  <select className="form-select form-select-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
-                    <option value="">All</option>
-                    {classesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FilterTile>
-
-                <FilterTile label="Insurance / Rx Group">
-                  <select className="form-select form-select-sm" value={selectedInsurance} onChange={(e) => setSelectedInsurance(e.target.value)}>
-                    <option value="">All</option>
-                    {insurancesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FilterTile>
-
-                <FilterTile label="Prescriber">
-                  <select className="form-select form-select-sm" value={selectedPrescriber} onChange={(e) => setSelectedPrescriber(e.target.value)}>
-                    <option value="">All</option>
-                    {prescribersOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FilterTile>
-
-                <FilterTile label="User">
-                  <select className="form-select form-select-sm" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-                    <option value="">All</option>
-                    {usersOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FilterTile>
-
-                <FilterTile label="Branch">
-                  <select className="form-select form-select-sm" value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}>
-                    <option value="">All</option>
-                    {branchesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </FilterTile>
-              </div>
-
-              <div className="d-flex align-items-center justify-content-end gap-2 border-top mt-4 pt-3">
-                <button type="button" className="btn btn-outline-light me-2" onClick={resetFilters}>
-                  Reset
-                </button>
-                <button type="button" className="btn btn-primary" onClick={downloadCSV}>
-                  <i className="ti ti-cloud-download me-1" /> Export CSV
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ===== Card + Table (Visits-style) ===== */}
-          <div className="card mb-0">
-            <div className="card-header d-flex align-items-center flex-wrap gap-2 justify-content-between">
-              <h5 className="d-inline-flex align-items-center mb-0">
-                MisMatching Scripts <span className="badge bg-danger ms-2">{filteredData.length}</span>
-              </h5>
-
-              <div className="d-flex align-items-center gap-2">
-                <button type="button" className="btn btn-icon btn-white" title="Refresh" onClick={() => window.location.reload()}>
-                  <i className="ti ti-refresh" />
-                </button>
-                <button type="button" className="btn btn-icon btn-white" title="Print" onClick={() => window.print()}>
-                  <i className="ti ti-printer" />
-                </button>
-                <button type="button" className="btn btn-icon btn-white" title="Download" onClick={downloadCSV}>
-                  <i className="ti ti-cloud-download" />
-                </button>
-
-                <div className="dropdown">
-                  <button className="dropdown-toggle btn btn-md btn-outline-light d-inline-flex align-items-center" data-bs-toggle="dropdown">
-                    <i className="ti ti-sort-descending-2 me-1" />
-                    <span className="me-1">Sort By : </span>
-                    {sortConfig?.key === "date" && sortConfig.direction === "ascending" ? "Oldest" : "Newest"}
-                  </button>
-                  <ul className="dropdown-menu dropdown-menu-end p-2">
-                    <li>
-                      <button type="button" className="dropdown-item rounded-1"
-                        onClick={() => setSortConfig({ key: "date" as keyof DrugTransaction, direction: "descending" })}>
-                        Newest
-                      </button>
-                    </li>
-                    <li>
-                      <button type="button" className="dropdown-item rounded-1"
-                        onClick={() => setSortConfig({ key: "date" as keyof DrugTransaction, direction: "ascending" })}>
-                        Oldest
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div className="card-body">
-              <div className="table-responsive table-nowrap">
-                <table className="table mb-0 border align-middle">
-                  <thead className="table-light">
-                    <tr>
-                      {[
-                        { label: "Date", key: "date" as keyof DrugTransaction },
-                        { label: "Script Code", key: "scriptCode" as keyof DrugTransaction },
-                        { label: "Branch Name", key: "branchCode" as keyof DrugTransaction },
-                        { label: "Rx Group", key: "insuranceRx" as keyof DrugTransaction },
-                        { label: "BIN", key: "binCode" as keyof DrugTransaction },
-                        { label: "PCN", key: "pcnName" as keyof DrugTransaction },
-                        { label: "Drug Class", key: "drugClass" as keyof DrugTransaction },
-                        { label: "Drug Name", key: "drugName" as keyof DrugTransaction },
-                        { label: "NDC Code", key: "ndcCode" as keyof DrugTransaction },
-                        { label: "User", key: "user" as keyof DrugTransaction },
-                        { label: "Patient Payment", key: "patientPayment" as keyof DrugTransaction, align: "end" },
-                        { label: "ACQ", key: "acquisitionCost" as keyof DrugTransaction, align: "end" },
-                        { label: "Insurance Payment", key: "insurancePayment" as keyof DrugTransaction, align: "end" },
-                        { label: "Prescriber", key: "prescriber" as keyof DrugTransaction },
-                        { label: "Quantity", key: "quantity" as keyof DrugTransaction, align: "end" },
-                        { label: "Net Profit / Item", key: "netProfitPerItem" as keyof DrugTransaction, align: "end" },
-                        { label: "Total Net Profit", key: "netProfit" as keyof DrugTransaction, align: "end" },
-                        { label: "Highest Net / Item", key: "highestNetProfitPerItem" as keyof DrugTransaction, align: "end" },
-                        { label: "Total Highest Net", key: "highestNet" as keyof DrugTransaction, align: "end" },
-                        { label: "Diff", key: "difference" as keyof DrugTransaction, align: "end" },
-                        { label: "Diff / Item", key: "DifferencePerItem" as keyof DrugTransaction, align: "end" },
-                        { label: "Highest Drug NDC", key: "highestDrugNDC" as keyof DrugTransaction },
-                        { label: "Highest Drug Name", key: "highestDrugName" as keyof DrugTransaction },
-                        { label: "Highest Script Code", key: "highestScriptCode" as keyof DrugTransaction },
-                        { label: "Highest Qty", key: "highestQuantity" as keyof DrugTransaction, align: "end" },
-                        { label: "Highest Rx Group", key: "highestInsuranceRx" as keyof DrugTransaction },
-                        { label: "Highest BIN", key: "highestBINCode" as keyof DrugTransaction },
-                        { label: "Highest PCN", key: "highestPCNName" as keyof DrugTransaction },
-                        { label: "Highest Script Date", key: "highestScriptDate" as keyof DrugTransaction },
-                      ].map(({ label, key, align }) => (
-                        <th
-                          key={String(key)}
-                          className={`text-nowrap ${align === "end" ? "text-end" : ""}`}
-                          onClick={() => requestSort(key)}
-                          role="button"
-                          title="Sort"
-                        >
-                          <span className="d-inline-flex align-items-center gap-1">
-                            {label} <i className={sortIcon(key)} />
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {currentRecords.map((item, index) => {
-                      const diff = ((item.highestNet ?? 0) - (item.netProfit ?? 0)) as number;
-                      const diffPer = ((item.highestNetProfitPerItem ?? 0) - (item.netProfitPerItem ?? 0)) as number;
-
-                      return (
-                        <tr key={index}>
-                          <td className="text-nowrap">{formatDate((item as any).date)}</td>
-                          <td>
-                            <a href={`/scriptitems/${item.scriptCode}`} className="link-primary fw-semibold">
-                              {item.scriptCode}
-                            </a>
-                          </td>
-                          <td>{item.branchCode}</td>
-
-                          <td className="text-nowrap">
-                            <a href={`/InsuranceDetails/${item.rxGroupId}`} target="_blank" rel="noreferrer" className="link-primary">
-                              {item.insuranceRx || "NA"}
-                            </a>
-                          </td>
-
-                          <td className="text-nowrap">
-                            <a href={`/InsuranceBINDetails/${item.binId}`} target="_blank" rel="noreferrer" className="link-primary">
-                              {(item.binName ? `${item.binName} - ` : "") + (item.binCode || "NA")}
-                            </a>
-                          </td>
-
-                          <td className="text-nowrap">
-                            <a href={`/InsurancePCNDetails/${item.pcnId}`} target="_blank" rel="noreferrer" className="link-primary">
-                              {item.pcnName || "NA"}
-                            </a>
-                          </td>
-
-                          <td>{item.drugClass}</td>
-
-                          <td className="text-nowrap">
-                            <a
-                              href={`/drug/${item.drugId}?ndc=${item.ndcCode}&insuranceId=${item.insuranceId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="link-primary"
-                            >
-                              {item.drugName}
-                            </a>
-                          </td>
-
-                          <td className="text-nowrap">
-                            <a href={`https://ndclist.com/ndc/${item.ndcCode}`} target="_blank" rel="noreferrer" className="link-primary">
-                              {item.ndcCode}
-                            </a>
-                          </td>
-
-                          <td>{item.user}</td>
-
-                          <td className="text-end">{item.patientPayment}</td>
-                          <td className="text-end">{item.acquisitionCost}</td>
-                          <td className="text-end">{item.insurancePayment}</td>
-                          <td>{normalizeName(String(item.prescriber || ""))}</td>
-                          <td className="text-end">{item.quantity}</td>
-
-                          <td className="text-end">{(item.netProfitPerItem ?? 0).toFixed(3)}</td>
-                          <td className="text-end">{(item.netProfit ?? 0).toFixed(3)}</td>
-                          <td className="text-end">{(item.highestNetProfitPerItem ?? 0).toFixed(3)}</td>
-                          <td className="text-end">{(item.highestNet ?? 0).toFixed(3)}</td>
-
-                          <td className={`text-end ${diff > 0 ? "text-danger" : "text-muted"}`}>{diff.toFixed(3)}</td>
-                          <td className={`text-end ${diffPer > 0 ? "text-danger" : "text-muted"}`}>{diffPer.toFixed(3)}</td>
-
-                          <td className="text-nowrap">
-                            <a href={`https://ndclist.com/ndc/${item.highestDrugNDC}`} target="_blank" rel="noreferrer" className="link-primary fw-semibold">
-                              {item.highestDrugNDC}
-                            </a>
-                          </td>
-
-                          <td className="text-nowrap">
-                            <a
-       href={`/drug/${item.highestDrugId}?ndc=${item.highestDrugNDC}&insuranceId=${item.insuranceId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="link-primary fw-semibold"
-                            >
-                              {item.highestDrugName}
-                            </a>
-                          </td>
-
-                          <td className="text-nowrap">
-                            <a href={`/scriptitems/${item.highestScriptCode}`} target="_blank" rel="noreferrer" className="link-primary">
-                              {item.highestScriptCode || "NA"}
-                            </a>
-                          </td>
-
-                          <td className="text-end">{item.highestQuantity ?? "NA"}</td>
-
-                          <td className="text-nowrap">
-                            {item.highestRxGroupId ? (
-                              <a href={`/InsuranceDetails/${item.highestRxGroupId}`} target="_blank" rel="noreferrer" className="link-primary">
-                                {item.highestInsuranceRx}
-                              </a>
-                            ) : (
-                              item.highestInsuranceRx || "NA"
-                            )}
-                          </td>
-
-                          <td className="text-nowrap">
-                            {item.highestBinId ? (
-                              <a href={`/InsuranceBINDetails/${item.highestBinId}`} target="_blank" rel="noreferrer" className="link-primary">
-                                {(item.highestBINName ? `${item.highestBINName} - ` : "") + (item.highestBINCode || "NA")}
-                              </a>
-                            ) : (
-                              item.highestBINCode || "NA"
-                            )}
-                          </td>
-
-                          <td className="text-nowrap">
-                            {item.highestPcnId ? (
-                              <a href={`/InsurancePCNDetails/${item.highestPcnId}`} target="_blank" rel="noreferrer" className="link-primary">
-                                {item.highestPCNName}
-                              </a>
-                            ) : (
-                              item.highestPCNName || "NA"
-                            )}
-                          </td>
-
-                          <td className="text-nowrap">{formatDate((item as any).highestScriptDate)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="d-flex align-items-center justify-content-between mt-3">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="btn btn-outline-light d-inline-flex align-items-center"
-                >
-                  <ChevronLeft className="me-1" size={16} /> Previous
-                </button>
-                <span className="text-muted">
-                  Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-                </span>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="btn btn-outline-light d-inline-flex align-items-center"
-                >
-                  Next <ChevronRight className="ms-1" size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-          {/* /card */}
+          <div className="stat-divider my-3" />
+          <div className="small text-muted">Updated by current filters</div>
         </div>
       </div>
     </motion.div>
   );
 };
 
-export default ThirdDashBoard;
+interface Props { data?: DrugTransaction[]; }
+
+const ThirdDashboard: React.FC<Props> = ({ data }) => {
+  // ===== fetch (only if data not provided) =====
+  const [serverData, setServerData] = useState<DrugTransaction[]>([]);
+  const [loading, setLoading] = useState<boolean>(!data);
+  const [error, setError] = useState<string | null>(null);
+  const [matchOn, setMatchOn] = useState<"BIN" | "PCN" | "RX">("BIN");
+  const classVersion = (localStorage.getItem("classType") || "ClassVersion1");
+
+  // Initialize Rx/PCN from localStorage so we mirror the main page selections
+  const [selectedInsurance, setSelectedInsurance] = useState<string>(localStorage.getItem("selectedRx") || "");
+  const [selectedPCN, setSelectedPCN]             = useState<string>(localStorage.getItem("selectedPcn") || "");
+  const [selectedBranch, setSelectedBranch]       = useState("");
+  const [selectedClass, setSelectedClass]         = useState("");
+  const [selectedPrescriber, setSelectedPrescriber] = useState("");
+  const [selectedUser, setSelectedUser]           = useState("");
+  const [selectedMonth, setSelectedMonth]         = useState("");
+
+  useEffect(() => {
+    if (data && data.length) { setLoading(false); setError(null); return; }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+
+        const pageSize = 600;
+        let page = 1;
+        let all: DrugTransaction[] = [];
+
+        // read same keys the main page uses
+        const lsRx  = (localStorage.getItem("selectedRx")  || selectedInsurance || "").trim();
+        const lsPcn = (localStorage.getItem("selectedPcn") || selectedPCN      || "").trim();
+        const lsBin = (localStorage.getItem("selectedBin") || "").trim();
+
+        while (!cancelled) {
+          const params: Record<string, any> = { pageNumber: page, pageSize, classVersion, matchOn };
+          // pass through the same params main page relies on
+          if (lsRx)  params.rx  = lsRx;   // if your API expects a different key, rename here
+          if (lsPcn) params.pcn = lsPcn;  // "
+          if (lsBin) params.bin = lsBin;  // "
+
+          const res = await axiosInstance.get<DrugTransaction[]>("/drug/GetAllLatestScriptsPaginated", { params });
+          const pageData = Array.isArray(res.data) ? res.data : [];
+          all = all.concat(pageData);
+          setServerData([...all]);
+          if (pageData.length < pageSize) break;
+          page += 1;
+        }
+        if (!cancelled) setLoading(false);
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.response?.data?.message || "Failed to load data.");
+          setLoading(false);
+        }
+      }
+    })();
+    // re-fetch when matchOn/classVersion OR Rx/PCN change (to mirror main page)
+  }, [matchOn, classVersion, data, selectedInsurance, selectedPCN]);
+
+  // pick the live array
+  const baseRows = useMemo<DrugTransaction[]>(
+    () => (data && data.length ? data : serverData),
+    [data, serverData]
+  );
+
+  // ===== ONLY MISMATCHING SCRIPTS (ndcCode !== highestDrugNDC) =====
+  const mismatchedRows = useMemo<DrugTransaction[]>(
+    () => (baseRows || []).filter(i => (i?.ndcCode || "") !== (i?.highestDrugNDC || "")),
+    [baseRows]
+  );
+
+  // ===== table state =====
+  const [latestScripts, setLatestScripts] = useState<DrugTransaction[]>(mismatchedRows);
+  const [filteredData, setFilteredData]   = useState<DrugTransaction[]>([]);
+  const [currentPage, setCurrentPage]     = useState(1);
+  const [sortConfig, setSortConfig]       = useState<{ key: string; direction: "ascending" | "descending" } | null>(null);
+
+  const [belowNetPriceCount, setBelowNetPriceCount] = useState(0);
+  const [totalRevenue, setTotalRevenue]             = useState(0);
+  const [bestTotal, setBestTotal]                   = useState<number>(0);
+  const [totalDeviation, setTotalDeviation]         = useState<number>(0);
+  const [kpiLayout, setKpiLayout] = useState<"row" | "grid">(
+    (localStorage.getItem("kpiLayout") as "row" | "grid") || "row"
+  );
+
+  const rowsPerPage = 10;
+
+  useEffect(() => { setLatestScripts(mismatchedRows); }, [mismatchedRows]);
+
+  // options
+  const months = useMemo(
+    () => Array.from(new Set(latestScripts.map((i) => monthKey((i as any).date))))
+            .filter(Boolean).sort().map((m) => ({ value: m, label: m })),
+    [latestScripts]
+  );
+  const classesOpts     = useMemo(() => [...new Set(latestScripts.map(i => i.drugClass))].filter(Boolean).sort().map(x => ({ value: String(x), label: String(x) })), [latestScripts]);
+  const insurancesOpts  = useMemo(() => [...new Set(latestScripts.map(i => i.insuranceRx))].filter(Boolean).sort().map(ins => ({ value: String(ins), label: insurance_mapping[String(ins)] || String(ins) })), [latestScripts]);
+  const pcnOpts         = useMemo(() => [...new Set(latestScripts.map(i => i.pcnName))].filter(Boolean).sort().map(x => ({ value: String(x), label: String(x) })), [latestScripts]);
+  const prescribersOpts = useMemo(() => [...new Set(latestScripts.map(i => i.prescriber))].filter(Boolean).sort().map(x => ({ value: String(x), label: String(x) })), [latestScripts]);
+  const usersOpts       = useMemo(() => [...new Set(latestScripts.map(i => i.user))].filter(Boolean).sort().map(x => ({ value: String(x), label: String(x) })), [latestScripts]);
+  const branchesOpts    = useMemo(() => [...new Set(latestScripts.map(i => i.branchCode))].filter(Boolean).sort().map(x => ({ value: String(x), label: String(x) })), [latestScripts]);
+
+  // filter + sort + KPIs
+  useEffect(() => {
+    let sorted = [...latestScripts];
+
+    if (sortConfig) {
+      const { key, direction } = sortConfig;
+      sorted.sort((a, b) => {
+        const getVal = (r: DrugTransaction) => {
+          switch (key) {
+            case "difference": return num(r.highestNet) - num(r.netProfit);
+            case "differencePerItem": return num(r.highestNetProfitPerItem) - num(r.netProfitPerItem);
+            case "date":
+            case "highestScriptDate": {
+              const d = key === "date" ? (r as any).date : (r as any).highestScriptDate;
+              return toSafeDate(d).getTime();
+            }
+            default:
+              // @ts-ignore index access
+              const val = r[key];
+              if (typeof val === "number") return val;
+              if (val == null) return -Infinity;
+              return String(val).toLowerCase();
+          }
+        };
+        const va = getVal(a), vb = getVal(b);
+        if (va < vb) return direction === "ascending" ? -1 : 1;
+        if (va > vb) return direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    const filtered = sorted.filter((i) => {
+      const m = monthKey((i as any).date);
+      return (
+        (!selectedClass || i.drugClass === selectedClass) &&
+        (!selectedInsurance || i.insuranceRx === selectedInsurance) &&
+        (!selectedPCN || i.pcnName === selectedPCN) &&
+        (!selectedPrescriber || i.prescriber === selectedPrescriber) &&
+        (!selectedUser || i.user === selectedUser) &&
+        (!selectedBranch || i.branchCode === selectedBranch) &&
+        (!selectedMonth || m === selectedMonth)
+      );
+    });
+
+    setFilteredData(filtered);
+
+    const below        = filtered.filter(i => num(i.netProfit) < num(i.highestNet)).length;
+    const sumNetProfit = filtered.reduce((s, i) => s + num(i.netProfit), 0);
+    const sumBest      = filtered.reduce((s, i) => s + num(i.highestNet), 0);
+    const sumDeviation = filtered.reduce((s, i) => s + (num(i.highestNet) - num(i.netProfit)), 0);
+
+    setBelowNetPriceCount(below);
+    setTotalRevenue(+sumNetProfit.toFixed(2));
+    setBestTotal(+sumBest.toFixed(2));
+    setTotalDeviation(+sumDeviation.toFixed(2));
+    setCurrentPage(1);
+  }, [
+    latestScripts, sortConfig,
+    selectedClass, selectedInsurance, selectedPCN, selectedPrescriber, selectedUser, selectedBranch, selectedMonth,
+  ]);
+
+  const requestSort = (key: string) =>
+    setSortConfig((prev) =>
+      !prev || prev.key !== key
+        ? { key, direction: "ascending" }
+        : { key, direction: prev.direction === "ascending" ? "descending" : "ascending" }
+    );
+
+  const normalizeName = (name: string) =>
+    (name || "")
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ")
+      .replace(/[.,]/g, "");
+
+  const downloadCSV = () => {
+    const headers = ["Date","Script","Insurance","Drug Class","Drug Name","NDC Code","Patient Payment","ACQ","Insurance Payment","Prescriber","Net Profit","Highest Net","Difference","Highest NDC","Highest Drug"];
+    const rows = filteredData.map((i) => [
+      formatDate((i as any).date), i.scriptCode, i.insuranceRx, i.drugClass, i.drugName, i.ndcCode,
+      num(i.patientPayment), num(i.acquisitionCost), num(i.insurancePayment),
+      normalizeName(String(i.prescriber || "")),
+      num(i.netProfit).toFixed(2), num(i.highestNet).toFixed(2),
+      (num(i.highestNet) - num(i.netProfit)).toFixed(2),
+      i.highestDrugNDC, i.highestDrugName,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "audit_report.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const resetFilters = () => {
+    setSelectedMonth(""); setSelectedClass(""); setSelectedPrescriber("");
+    setSelectedUser(""); setSelectedBranch("");
+    setSelectedInsurance(""); setSelectedPCN("");
+    // keep localStorage in sync like main page
+    localStorage.removeItem("selectedRx");
+    localStorage.removeItem("selectedPcn");
+  };
+
+  const sortIcon = (k: string) => {
+    if (!sortConfig || sortConfig.key !== k) return "ti ti-arrows-sort text-muted";
+    return sortConfig.direction === "ascending" ? "ti ti-arrow-up" : "ti ti-arrow-down";
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+  const currentRecords = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const formattedRevenue   = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(totalRevenue ?? 0);
+  const formattedBestTotal = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(bestTotal ?? 0);
+  const formattedDeviation = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(totalDeviation ?? 0);
+
+  // responsive class for KPI columns (preserve your toggle behavior)
+  const kpiCol = kpiLayout === "grid" ? "col-xl-6 col-md-6" : "col-xl-3 col-md-6";
+
+  return (
+    <motion.div>
+      {/* lightweight CSS for the KPI cards */}
+      <style>
+        {`
+          .stat-card {
+            position: relative;
+            border-radius: 1rem;
+            overflow: hidden;
+            background:
+              radial-gradient(1200px 1200px at -10% -20%, rgba(0,0,0,0.03), transparent 40%),
+              var(--bs-card-bg, #fff);
+          }
+          .stat-accent {
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 4px;
+            opacity: 0.9;
+          }
+          .stat-icon {
+            width: 44px;
+            height: 44px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            font-size: 22px;
+            background: rgba(0, 0, 0, 0.04);
+          }
+          @media (prefers-color-scheme: dark) {
+            .stat-icon { background: rgba(255,255,255,0.06); }
+          }
+          .stat-divider {
+            border-bottom: 1px dashed rgba(0,0,0,0.18);
+          }
+        `}
+      </style>
+
+      <div className="page-wrapper" id="main-content">
+        <div className="content">
+          {/* ===== centered Match On (consistent with other pages) ===== */}
+          <div className="d-flex flex-wrap align-items-center justify-content-center gap-2 mb-3">
+            <label className="fw-semibold text-primary mb-0" htmlFor="matchOn">Match On:</label>
+            <select
+              id="matchOn"
+              value={matchOn}
+              onChange={(e) => setMatchOn(e.target.value as "BIN"|"PCN"|"RX")}
+              className="form-select form-select-sm w-auto border-primary"
+            >
+              <option value="BIN">BIN</option>
+              <option value="PCN">PCN</option>
+              <option value="RX">RxGroup</option>
+            </select>
+          </div>
+
+          <h3 className="text-4xl fw-bolder text-primary mb-4 text-center">MisMatching Prescriptions</h3>
+
+          {/* Loading / Error */}
+          {loading && <p className="text-center text-muted">Loading data…</p>}
+          {error && <div className="alert alert-danger" role="alert">{error}</div>}
+
+          {/* KPIs */}
+          {!loading && !error && (
+            <>
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <span className="text-muted small">Overview</span>
+                <div className="btn-group">
+                  <button
+                    type="button"
+                    className={`btn btn-sm btn-outline-light ${kpiLayout === "row" ? "active" : ""}`}
+                    onClick={() => { setKpiLayout("row"); localStorage.setItem("kpiLayout","row"); }}
+                    title="Row layout"
+                  >
+                    <i className="ti ti-layout-navbar" />
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm btn-outline-light ${kpiLayout === "grid" ? "active" : ""}`}
+                    onClick={() => { setKpiLayout("grid"); localStorage.setItem("kpiLayout","grid"); }}
+                    title="Grid layout"
+                  >
+                    <i className="ti ti-layout-grid" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="row g-3 mb-4">
+                <StatCard
+                  title="Total MisMatching Prescriptions"
+                  value={filteredData.length}
+                  icon="ti-alert-triangle"
+                  accent="primary"
+                  colClass={kpiCol}
+                />
+                <StatCard
+                  title="Total Deviation"
+                  value={totalDeviation}
+                  decimals={2}
+                  prefix="$"
+                  icon="ti-arrows-exchange"
+                  accent="danger"
+                  colClass={kpiCol}
+                />
+                <StatCard
+                  title="Best Total Estimated Revenue"
+                  value={bestTotal}
+                  decimals={2}
+                  prefix="$"
+                  icon="ti-cash"
+                  accent="success"
+                  colClass={kpiCol}
+                />
+                <StatCard
+                  title="Current Total Revenue"
+                  value={totalRevenue}
+                  decimals={2}
+                  prefix="$"
+                  icon="ti-chart-bar"
+                  accent="warning"
+                  colClass={kpiCol}
+                />
+              </div>
+
+              {/* Filters */}
+              <div className="card mb-3">
+                <div className="card-header border-0 pb-1"><h5 className="mb-0 pt-2">Filters</h5></div>
+                <div className="card-body">
+                  <div className="row row-gap-4">
+                    <FilterTile label="Month">
+                      <select className="form-select form-select-sm" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
+                        <option value="">All</option>
+                        {months.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                    <FilterTile label="Drug Class">
+                      <select className="form-select form-select-sm" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)}>
+                        <option value="">All</option>
+                        {classesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                    <FilterTile label="Rx Group">
+                      <select
+                        className="form-select form-select-sm"
+                        value={selectedInsurance}
+                        onChange={(e) => { setSelectedInsurance(e.target.value); localStorage.setItem("selectedRx", e.target.value || ""); }}
+                      >
+                        <option value="">All</option>
+                        {insurancesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                    <FilterTile label="PCN">
+                      <select
+                        className="form-select form-select-sm"
+                        value={selectedPCN}
+                        onChange={(e) => { setSelectedPCN(e.target.value); localStorage.setItem("selectedPcn", e.target.value || ""); }}
+                      >
+                        <option value="">All</option>
+                        {pcnOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                    <FilterTile label="Prescriber">
+                      <select className="form-select form-select-sm" value={selectedPrescriber} onChange={(e) => setSelectedPrescriber(e.target.value)}>
+                        <option value="">All</option>
+                        {prescribersOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                    <FilterTile label="User">
+                      <select className="form-select form-select-sm" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
+                        <option value="">All</option>
+                        {usersOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                    <FilterTile label="Branch">
+                      <select className="form-select form-select-sm" value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}>
+                        <option value="">All</option>
+                        {branchesOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FilterTile>
+                  </div>
+
+                  <div className="d-flex align-items-center justify-content-end gap-2 border-top mt-4 pt-3">
+                    <button type="button" className="btn btn-outline-light me-2" onClick={resetFilters}>Reset</button>
+                    <button type="button" className="btn btn-primary" onClick={downloadCSV}>
+                      <i className="ti ti-cloud-download me-1" /> Export CSV
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="card mb-0">
+                <div className="card-header d-flex align-items-center flex-wrap gap-2 justify-content-between">
+                  <h5 className="d-inline-flex align-items-center mb-0">
+                    MisMatching Scripts <span className="badge bg-danger ms-2">{filteredData.length}</span>
+                  </h5>
+                  <span className="text-muted small">Total deviation: <strong>{formattedDeviation}</strong></span>
+                </div>
+
+                <div className="card-body">
+                  <div className="table-responsive table-nowrap">
+                    <table className="table mb-0 border align-middle">
+                      <thead className="table-light">
+                        <tr>
+                          {[
+                            { label: "Date", key: "date" },
+                            { label: "Script Code", key: "scriptCode" },
+                            { label: "Branch Name", key: "branchCode" },
+                            { label: "Rx Group", key: "insuranceRx" },
+                            { label: "BIN", key: "binCode" },
+                            { label: "PCN", key: "pcnName" },
+                            { label: "Drug Class", key: "drugClass" },
+                            { label: "Drug Name", key: "drugName" },
+                            { label: "NDC Code", key: "ndcCode" },
+                            { label: "User", key: "user" },
+                            { label: "Patient Payment", key: "patientPayment", align: "end" },
+                            { label: "ACQ", key: "acquisitionCost", align: "end" },
+                            { label: "Insurance Payment", key: "insurancePayment", align: "end" },
+                            { label: "Prescriber", key: "prescriber" },
+                            { label: "Quantity", key: "quantity", align: "end" },
+                            { label: "Net Profit / Item", key: "netProfitPerItem", align: "end" },
+                            { label: "Total Net Profit", key: "netProfit", align: "end" },
+                            { label: "Highest Net / Item", key: "highestNetProfitPerItem", align: "end" },
+                            { label: "Total Highest Net", key: "highestNet", align: "end" },
+                            { label: "Diff", key: "difference", align: "end" },
+                            { label: "Diff / Item", key: "differencePerItem", align: "end" },
+                            { label: "Highest Drug NDC", key: "highestDrugNDC" },
+                            { label: "Highest Drug Name", key: "highestDrugName" },
+                            { label: "Highest Script Code", key: "highestScriptCode" },
+                            { label: "Highest Qty", key: "highestQuantity", align: "end" },
+                            { label: "Highest Rx Group", key: "highestInsuranceRx" },
+                            { label: "Highest BIN", key: "highestBINCode" },
+                            { label: "Highest PCN", key: "highestPCNName" },
+                            { label: "Highest Script Date", key: "highestScriptDate" },
+                          ].map(({ label, key, align }) => (
+                            <th
+                              key={String(key)}
+                              className={`text-nowrap ${align === "end" ? "text-end" : ""}`}
+                              onClick={() => requestSort(String(key))}
+                              role="button"
+                              title="Sort"
+                            >
+                              <span className="d-inline-flex align-items-center gap-1">
+                                {label} <i className={sortIcon(String(key))} />
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {currentRecords.map((item, index) => {
+                          const diff = num(item.highestNet) - num(item.netProfit);
+                          const diffPer = num(item.highestNetProfitPerItem) - num(item.netProfitPerItem);
+                          return (
+                            <tr key={index}>
+                              <td className="text-nowrap">{formatDate((item as any).date)}</td>
+                              <td><a href={`/scriptitems/${item.scriptCode}`} className="link-primary fw-semibold">{item.scriptCode}</a></td>
+                              <td>{item.branchCode}</td>
+                              <td className="text-nowrap">
+                                <a href={`/InsuranceDetails/${item.rxGroupId}`} target="_blank" rel="noreferrer" className="link-primary">
+                                  {item.insuranceRx || "NA"}
+                                </a>
+                              </td>
+                              <td className="text-nowrap">
+                                <a href={`/InsuranceBINDetails/${item.binId}`} target="_blank" rel="noreferrer" className="link-primary">
+                                  {(item.binName ? `${item.binName} - ` : "") + (item.binCode || "NA")}
+                                </a>
+                              </td>
+                              <td className="text-nowrap">
+                                <a href={`/InsurancePCNDetails/${item.pcnId}`} target="_blank" rel="noreferrer" className="link-primary">
+                                  {item.pcnName || "NA"}
+                                </a>
+                              </td>
+                              <td>{item.drugClass}</td>
+                              <td className="text-nowrap">
+                                <a href={`/drug/${item.drugId}?ndc=${item.ndcCode}&insuranceId=${item.insuranceId}`} target="_blank" rel="noreferrer" className="link-primary">
+                                  {item.drugName}
+                                </a>
+                              </td>
+                              <td className="text-nowrap">
+                                <a href={`https://ndclist.com/ndc/${item.ndcCode}`} target="_blank" rel="noreferrer" className="link-primary">
+                                  {item.ndcCode}
+                                </a>
+                              </td>
+                              <td>{item.user}</td>
+                              <td className="text-end">{num(item.patientPayment)}</td>
+                              <td className="text-end">{num(item.acquisitionCost)}</td>
+                              <td className="text-end">{num(item.insurancePayment)}</td>
+                              <td>{normalizeName(String(item.prescriber || ""))}</td>
+                              <td className="text-end">{num(item.quantity)}</td>
+                              <td className="text-end">{fmt(item.netProfitPerItem)}</td>
+                              <td className="text-end">{fmt(item.netProfit)}</td>
+                              <td className="text-end">{fmt(item.highestNetProfitPerItem)}</td>
+                              <td className="text-end">{fmt(item.highestNet)}</td>
+                              <td className={`text-end ${diff > 0 ? "text-danger" : "text-muted"}`}>{fmt(diff)}</td>
+                              <td className={`text-end ${diffPer > 0 ? "text-danger" : "text-muted"}`}>{fmt(diffPer)}</td>
+                              <td className="text-nowrap">
+                                <a href={`https://ndclist.com/ndc/${item.highestDrugNDC}`} target="_blank" rel="noreferrer" className="link-primary fw-semibold">
+                                  {item.highestDrugNDC}
+                                </a>
+                              </td>
+                              <td className="text-nowrap">
+                                <a href={`/drug/${item.highestDrugId}?ndc=${item.highestDrugNDC}&insuranceId=${item.insuranceId}`} target="_blank" rel="noreferrer" className="link-primary fw-semibold">
+                                  {item.highestDrugName}
+                                </a>
+                              </td>
+                              <td className="text-nowrap">
+                                <a href={`/scriptitems/${item.highestScriptCode}`} target="_blank" rel="noreferrer" className="link-primary">
+                                  {item.highestScriptCode || "NA"}
+                                </a>
+                              </td>
+                              <td className="text-end">{item.highestQuantity ?? "NA"}</td>
+                              <td className="text-nowrap">
+                                {item.highestRxGroupId
+                                  ? <a href={`/InsuranceDetails/${item.highestRxGroupId}`} target="_blank" rel="noreferrer" className="link-primary">{item.highestInsuranceRx}</a>
+                                  : (item.highestInsuranceRx || "NA")}
+                              </td>
+                              <td className="text-nowrap">
+                                {item.highestBinId
+                                  ? <a href={`/InsuranceBINDetails/${item.highestBinId}`} target="_blank" rel="noreferrer" className="link-primary">
+                                      {(item.highestBINName ? `${item.highestBINName} - ` : "") + (item.highestBINCode || "NA")}
+                                    </a>
+                                  : (item.highestBINCode || "NA")}
+                              </td>
+                              <td className="text-nowrap">
+                                {item.highestPcnId
+                                  ? <a href={`/InsurancePCNDetails/${item.highestPcnId}`} target="_blank" rel="noreferrer" className="link-primary">{item.highestPCNName}</a>
+                                  : (item.highestPCNName || "NA")}
+                              </td>
+                              <td className="text-nowrap">{formatDate((item as any).highestScriptDate)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="d-flex align-items-center justify-content-between mt-3">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="btn btn-outline-light d-inline-flex align-items-center"
+                    >
+                      <ChevronLeft className="me-1" size={16} /> Previous
+                    </button>
+                    <span className="text-muted">
+                      Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="btn btn-outline-light d-inline-flex align-items-center"
+                    >
+                      Next <ChevronRight className="ms-1" size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export default ThirdDashboard;

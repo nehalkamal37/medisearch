@@ -1,486 +1,186 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-
-import PageMeta from "../../components/PageMeta";
-import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
-import CommonFooter from "../../components/common-footer/commonFooter";
-import ImageWithBasePath from "../../components/image-with-base-path";
-import PredefinedDatePicker from "../../components/common-date-range-picker/PredefinedDatePicker";
-import { all_routes } from "../../routes/all_routes";
-
-// شارتات التيمبليت
-import ChartOne from "../dashboard/chart/chart1";
-import ChartTwo from "../dashboard/chart/chart2";
-import ChartThree from "../dashboard/chart/chart3";
-import ChartFour from "../dashboard/chart/chart4";
-import ChartFive from "../dashboard/chart/chart5";
-// الداشبوردات بتاعة الصيدلية (بتاعتك)
-import FirstDashboard from "./Dashboard";
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import type { DrugTransaction } from "../../types";
+import Dashboard from "./Dashboard";
 import SecondDashBoard from "./SecondDashboard";
 import ThirdDashBoard from "./ThirdDashboard";
-import SemiDonutChart from "../dashboard/chart/semiDonutChart";
+import BaseUrlLoader, { loadConfig } from "../../BaseUrlLoader";
+import {
+  Pill,
+  AlertTriangle,
+  BarChart3,
+  PieChart,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { useParams } from "react-router";
+import axiosInstance from "../../api/axiosInstance"; // Import the customized axios instance
 
-type TabKey = "1" | "2" | "3";
+// Ensure configuration is loaded before making API calls
+await loadConfig();
+// The BaseUrlLoader.API_BASE_URL is already used inside axiosInstance,
+// so there's no need to refer to it again here.
 
-const MainDashboard: React.FC = () => {
-  // هنسيب الـ param لو بتفتحي /dashboard/:dashboardId
-  const { dashboardId } = useParams<{ dashboardId?: string }>();
-  const [activeDashboard, setActiveDashboard] = useState<TabKey>(
-    (dashboardId as TabKey) || "1"
-  );
+export const MainDashboard: React.FC = () => {
+  const classVersion = localStorage.getItem("classType") || "ClassVersion1";
+  // Destructure the parameter from the URL (e.g., /dashboard/:dashboardId)
+  const { dashboardId } = useParams<{ dashboardId: string }>();
+  // Initialize activeDashboard state with the URL parameter or default to "1"
+  const [activeDashboard, setActiveDashboard] = useState(dashboardId || "1");
+  const [data, setData] = useState<DrugTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [matchOn, setMatchOn] = useState("BIN");
 
+  // Update activeDashboard if the dashboardId URL parameter changes
   useEffect(() => {
-    if (dashboardId) setActiveDashboard(dashboardId as TabKey);
+    if (dashboardId) {
+      setActiveDashboard(dashboardId);
+    }
   }, [dashboardId]);
 
-  const pageTitle = useMemo(() => {
-    switch (activeDashboard) {
-      case "1":
-        return "Pharmacy Dashboard — One";
-      case "2":
-        return "Pharmacy Dashboard — Two";
-      case "3":
-        return "Pharmacy Dashboard — Three";
-      default:
-        return "Pharmacy Dashboard";
-    }
-  }, [activeDashboard]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        localStorage.removeItem("selectedRx");
+        localStorage.removeItem("selectedPcn");
+        localStorage.removeItem("selectedBin");
+
+        const pageSize = 3000;
+        let allData: DrugTransaction[] = [];
+        let page = 1;
+        let continueFetching = true;
+
+        setLoading(true);
+        setError(null);
+
+        while (continueFetching) {
+          const response = await axiosInstance.get(
+            "/drug/GetAllLatestScriptsPaginated",
+            {
+              params: {
+                pageNumber: page,
+                pageSize,
+                classVersion,
+                matchOn,
+              },
+            }
+          );
+          const pageData: DrugTransaction[] = response.data;
+          console.log(`Page ${page} loaded`, pageData);
+
+          allData = [...allData, ...pageData];
+
+          // 👇 Immediately update state after fetching each page
+          setData([...allData]);
+          setLoading(false);
+
+          if (pageData.length < pageSize) {
+            continueFetching = false;
+          } else {
+            page++;
+          }
+        }
+
+        setLoading(false);
+      } catch (err) {
+        setError(
+          "Access Denied. Sorry, you don’t have permission to view this page.\nPlease contact the system administrator if you believe this is an error."
+        );
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [classVersion, activeDashboard, matchOn]);
+
+  // Class Version Selector
+
+  // Enhanced Responsive Button Component
+  const ResponsiveButton = ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick: () => void;
+  }) => (
+    <motion.button
+      whileHover={{
+        scale: 1.1,
+        boxShadow: "0px 8px 20px rgba(59, 130, 246, 0.4)",
+      }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className="w-full sm:w-auto px-6 py-2 text-white bg-blue-600 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all duration-200"
+    >
+      {children}
+    </motion.button>
+  );
 
   return (
-    <div className="page-wrapper" id="main-content">
-      <div className="content">
-        <PageMeta title={pageTitle} description="Pharmacy analytics" />
-        <AutoBreadcrumb title="Dashboard" />
-
-        {/* Header + Date Picker */}
-        <div className="d-flex align-items-center justify-content-between gap-2 mb-4 flex-wrap">
-          <div className="breadcrumb-arrow">
-            <h4 className="mb-1">Welcome, Admin</h4>
-            <p className="mb-0">
-              Today you have 10 visits,&nbsp;
-              <Link to={all_routes.visits} className="text-decoration-underline">
-                View Details
-              </Link>
-            </p>
+    <motion.div>
+      <main className="  sm:px-6 lg: py-8" role="main">
+        <header className="mb-6 text-center">
+          <h1 className="text-4xl font-bold text-blue-700">
+            Pharmacy Dashboard
+          </h1>
+          <div className="flex justify-center gap-4 mb-4">
+            <label htmlFor="matchOn" className="font-semibold text-blue-700">
+              Match On:
+            </label>
+            <select
+              id="matchOn"
+              value={matchOn}
+              onChange={(e) => setMatchOn(e.target.value)}
+              className="border border-blue-500 rounded px-3 py-1 text-blue-700"
+            >
+              <option value="BIN">BIN</option>
+              <option value="PCN">PCN</option>
+              <option value="RX">RxGroup</option>
+            </select>
           </div>
-          <PredefinedDatePicker />
-        </div>
+        </header>
 
-        {/* ======= أعلى 4 كروت من التيمبليت + الشارتات ======= */}
-        <div className="row">
-          <div className="col-xl-3 col-md-6 d-flex">
-            <div className="card pb-2 flex-fill">
-              <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                <div className="d-flex align-items-center overflow-hidden">
-                  <span className="avatar bg-primary rounded-circle flex-shrink-0">
-                    <i className="ti ti-user-exclamation fs-20" />
-                  </span>
-                  <div className="ms-2 overflow-hidden">
-                    <p className="mb-1 text-truncate">Patients</p>
-                    <h5 className="mb-0">108</h5>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <span className="badge badge-soft-success">+20%</span>
-                </div>
-              </div>
-              <Suspense fallback={<div />}>
-                <ChartOne />
-              </Suspense>
+        {/* Class Version Selector */}
+        {/* <ClassVersionSelector /> */}
+
+        {/* Loading/Error States */}
+        {loading && (
+          <section>
+            <h2 className="sr-only">Loading State</h2>
+            <p className="text-center text-gray-500">Loading data...</p>
+          </section>
+        )}
+        {error && (
+          <section
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-2xl mx-auto mb-6"
+            role="alert"
+          >
+            <h2 className="sr-only">Error State</h2>
+            <strong className="font-bold">Access Denied!</strong>
+            <span className="block sm:inline">
+              Sorry, you don’t have permission to view this page.
+            </span>
+            <br />
+            <span className="block sm:inline">
+              Please contact the system administrator if you believe this is an
+              error.
+            </span>
+          </section>
+        )}
+
+        {/* Render the appropriate dashboard when data is ready */}
+        {!loading && !error && (
+          <section>
+            <div>
+              {activeDashboard === "1" && <Dashboard data={data} />}
+              {activeDashboard === "2" && <SecondDashBoard data={data} />}
+              {activeDashboard === "3" && <ThirdDashBoard data={data} />}
             </div>
-          </div>
-
-          <div className="col-xl-3 col-md-6 d-flex">
-            <div className="card pb-2 flex-fill">
-              <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                <div className="d-flex align-items-center overflow-hidden">
-                  <span className="avatar bg-orange rounded-circle flex-shrink-0">
-                    <i className="ti ti-calendar-check fs-20" />
-                  </span>
-                  <div className="ms-2 overflow-hidden">
-                    <p className="mb-1 text-truncate">Appointments</p>
-                    <h5 className="mb-0">658</h5>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <span className="badge badge-soft-danger">-15%</span>
-                </div>
-              </div>
-              <Suspense fallback={<div />}>
-                <ChartTwo />
-              </Suspense>
-            </div>
-          </div>
-
-          <div className="col-xl-3 col-md-6 d-flex">
-            <div className="card pb-2 flex-fill">
-              <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                <div className="d-flex align-items-center overflow-hidden">
-                  <span className="avatar bg-purple rounded-circle flex-shrink-0">
-                    <i className="ti ti-stethoscope fs-20" />
-                  </span>
-                  <div className="ms-2 overflow-hidden">
-                    <p className="mb-1 text-truncate">Doctors</p>
-                    <h5 className="mb-0">565</h5>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <span className="badge badge-soft-success">+18%</span>
-                </div>
-              </div>
-              <Suspense fallback={<div />}>
-                <ChartThree />
-              </Suspense>
-            </div>
-          </div>
-
-          <div className="col-xl-3 col-md-6 d-flex">
-            <div className="card pb-2 flex-fill">
-              <div className="d-flex align-items-center justify-content-between gap-1 card-body pb-0 mb-1">
-                <div className="d-flex align-items-center overflow-hidden">
-                  <span className="avatar bg-pink rounded-circle flex-shrink-0">
-                    <i className="ti ti-moneybag fs-20" />
-                  </span>
-                  <div className="ms-2 overflow-hidden">
-                    <p className="mb-1 text-truncate">Transactions</p>
-                    <h5 className="mb-0">$5,523.56</h5>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <span className="badge badge-soft-success">+12%</span>
-                </div>
-              </div>
-              <Suspense fallback={<div />}>
-                <ChartFour />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-
-        {/* ======= سكشنين من التيمبليت (Request + Patients Stats) ======= */}
-        <div className="row">
-          <div className="col-xl-6 d-flex">
-            <div className="card flex-fill w-100">
-              <div className="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h5 className="fw-bold mb-0">Appointment Request</h5>
-                <Link
-                  to={all_routes.appointments}
-                  className="btn btn-sm btn-outline-light flex-shrink-0"
-                >
-                  All Appointments
-                </Link>
-              </div>
-              {/* جدول بسيط عينة زي التيمبليت */}
-              <div className="card-body p-1 py-2">
-                <div className="table-responsive table-nowrap">
-                  <table className="table table-borderless mb-0">
-                    <tbody>
-                      <tr>
-                        <td>
-                          <div className="d-flex align-items-center">
-                            <Link to={all_routes.patientDetails} className="avatar me-2">
-                              <ImageWithBasePath
-                                src="assets/img/profiles/avatar-23.jpg"
-                                alt="patient"
-                                className="rounded"
-                              />
-                            </Link>
-                            <div>
-                              <h6 className="fs-14 mb-1 fw-semibold">
-                                <Link to={all_routes.patientDetails}>Dominic Foster</Link>
-                              </h6>
-                              <div className="d-flex align-items-center">
-                                <p className="mb-0 fs-13 d-inline-flex align-items-center text-body">
-                                  <i className="ti ti-calendar me-1" />
-                                  12 Aug 2025
-                                </p>
-                                <span>
-                                  <i className="ti ti-minus-vertical text-light fs-14 mx-1" />
-                                </span>
-                                <p className="mb-0 fs-13 d-inline-flex align-items-center text-body">
-                                  <i className="ti ti-clock-hour-7 me-1" />
-                                  11:35 PM
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="badge badge-soft-success">Urology</span>
-                        </td>
-                        <td className="text-end border-0">
-                          <div className="d-flex align-items-center justify-content-end gap-2">
-                            <Link to="#" className="btn btn-icon btn-light" aria-label="Reject">
-                              <i className="ti ti-xbox-x" />
-                            </Link>
-                            <Link to="#" className="btn btn-icon btn-light" aria-label="Accept">
-                              <i className="ti ti-check" />
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                      {/* ... تقدري تسيبي بقية الروز أو تشيليها */}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xl-6 d-flex">
-            <div className="card shadow flex-fill w-100">
-              <div className="card-header d-flex align-items-center justify-content-between">
-                <h5 className="fw-bold mb-0">Patients Statistics</h5>
-                <Link to={all_routes.allPatientsList} className="btn btn-sm btn-outline-light">
-                  View All
-                </Link>
-              </div>
-              <div className="card-body pb-0">
-                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <h6 className="fs-14 fw-semibold mb-0">Total No of Patients : 480</h6>
-                  <div className="d-flex align-items-center gap-3">
-                    <p className="mb-0 text-dark">
-                      <i className="ti ti-point-filled me-1 text-primary" />
-                      New Patients
-                    </p>
-                    <p className="mb-0 text-dark">
-                      <i className="ti ti-point-filled me-1 text-soft-primary" />
-                      Old Patients
-                    </p>
-                  </div>
-                </div>
-                <Suspense fallback={<div />}>
-                  <ChartFive />
-                </Suspense>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ======= روابط سريعة/ويبجتس (اختياري) ======= */}
-        <div className="row">
-          <div className="col-xl-2 col-md-4 col-sm-6">
-            <Link to={all_routes.patients} className="card">
-              <div className="card-body text-center">
-                <span className="badge-soft-primary rounded w-100 d-flex p-3 justify-content-center fs-32 mb-2">
-                  <i className="ti ti-users" />
-                </span>
-                <h6 className="fs-14 fw-semibold text-truncate mb-0">All Patient</h6>
-              </div>
-            </Link>
-          </div>
-          <div className="col-xl-2 col-md-4 col-sm-6">
-            <Link to={all_routes.allDoctorsList} className="card">
-              <div className="card-body text-center">
-                <span className="badge-soft-success rounded w-100 d-flex p-3 justify-content-center fs-32 mb-2">
-                  <i className="ti ti-topology-bus" />
-                </span>
-                <h6 className="fs-14 fw-semibold text-truncate mb-0">Doctors</h6>
-              </div>
-            </Link>
-          </div>
-          <div className="col-xl-2 col-md-4 col-sm-6">
-            <Link to={all_routes.labResults} className="card">
-              <div className="card-body text-center">
-                <span className="badge-soft-warning rounded w-100 d-flex p-3 justify-content-center fs-32 mb-2">
-                  <i className="ti ti-test-pipe-2" />
-                </span>
-                <h6 className="fs-14 fw-semibold text-truncate mb-0">Labs Results</h6>
-              </div>
-            </Link>
-          </div>
-          <div className="col-xl-2 col-md-4 col-sm-6">
-            <Link to={all_routes.pharmacy} className="card">
-              <div className="card-body text-center">
-                <span className="badge-soft-danger rounded w-100 d-flex p-3 justify-content-center fs-32 mb-2">
-                  <i className="ti ti-prescription" />
-                </span>
-                <h6 className="fs-14 fw-semibold text-truncate mb-0">Prescriptions</h6>
-              </div>
-            </Link>
-          </div>
-          <div className="col-xl-2 col-md-4 col-sm-6">
-            <Link to={all_routes.visits} className="card">
-              <div className="card-body text-center">
-                <span className="badge-soft-purple rounded w-100 d-flex p-3 justify-content-center fs-32 mb-2">
-                  <i className="ti ti-e-passport" />
-                </span>
-                <h6 className="fs-14 fw-semibold text-truncate mb-0">Visits</h6>
-              </div>
-            </Link>
-          </div>
-          <div className="col-xl-2 col-md-4 col-sm-6">
-            <Link to={all_routes.medicalResults} className="card">
-              <div className="card-body text-center">
-                <span className="badge-soft-teal rounded w-100 d-flex p-3 justify-content-center fs-32 mb-2">
-                  <i className="ti ti-file-description" />
-                </span>
-                <h6 className="fs-14 fw-semibold text-truncate mb-0">Medical Records</h6>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        {/* ======= كارد مخصص لداشبورد الصيدلية (1/2/3) ======= */}
-        <div className="card mt-4">
-          <div className="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <h5 className="mb-0">Pharmacy Dashboards</h5>
-
-            <ul className="nav nav-pills">
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeDashboard === "1" ? "active" : ""}`}
-                  onClick={() => setActiveDashboard("1")}
-                >
-                  One
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeDashboard === "2" ? "active" : ""}`}
-                  onClick={() => setActiveDashboard("2")}
-                >
-                  Two
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeDashboard === "3" ? "active" : ""}`}
-                  onClick={() => setActiveDashboard("3")}
-                >
-                  Three
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* ملاحظة: الداشبوردات الداخلية مكتوبة Tailwind؛ بنحطها جوه card-body بس */}
-          <div className="card-body p-0">
-            {activeDashboard === "1" && <FirstDashboard />}
-            {activeDashboard === "2" && <SecondDashBoard />}
-            {activeDashboard === "3" && <ThirdDashBoard data={[]} />}
-          </div>
-        </div>
-
-        {/* ======= سكشن من التيمبليت (أقسام عليا) - اختياري ======= */}
-        <div className="row mt-4">
-          <div className="col-xl-5 d-flex">
-            <div className="card shadow flex-fill w-100">
-              <div className="card-header d-flex align-items-center justify-content-between">
-                <h5 className="mb-0">Top Departments</h5>
-                <Link to="#" className="btn btn-sm btn-outline-light flex-shrink-0">
-                  View All
-                </Link>
-              </div>
-              <div className="card-body">
-                <div className="row row-gap-3 align-items-center mb-4">
-                  <div className="col-sm-6">
-                    <div className="position-relative">
-                      <Suspense fallback={<div />}>
-                        <SemiDonutChart />
-                      </Suspense>
-                      <div className="position-absolute text-center top-50 start-50 translate-middle">
-                        <p className="fs-13 mb-1">Appointments</p>
-                        <h3>3656</h3>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <div className="text-sm-start text-center">
-                      <p className="text-dark mb-2">
-                        <i className="ti ti-circle-filled text-info fs-13 me-1" />
-                        Cardiology
-                      </p>
-                      <p className="text-dark mb-2">
-                        <i className="ti ti-circle-filled text-cyan fs-13 me-1" />
-                        Neurology
-                      </p>
-                      <p className="text-dark mb-2">
-                        <i className="ti ti-circle-filled text-purple fs-13 me-1" />
-                        Dermatology
-                      </p>
-                      <p className="text-dark mb-2">
-                        <i className="ti ti-circle-filled text-orange fs-13 me-1" />
-                        Orthopedics
-                      </p>
-                      <p className="text-dark mb-2">
-                        <i className="ti ti-circle-filled text-warning fs-13 me-1" />
-                        Urology
-                      </p>
-                      <p className="text-dark mb-0">
-                        <i className="ti ti-circle-filled text-indigo fs-13 me-1" />
-                        Radiology
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="border rounded p-1">
-                  <div className="row g-0">
-                    <div className="col-6 p-2 border-end text-center">
-                      <h5 className="mb-1 ">$2512.32</h5>
-                      <p className="mb-0 ">Revenue Generated</p>
-                    </div>
-                    <div className="col-6 p-2 text-center">
-                      <h5 className="mb-1">3125+</h5>
-                      <p className="mb-0">Appointments last month</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-xl-7 d-flex">
-            <div className="card shadow flex-fill w-100">
-              <div className="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h5 className="mb-0">Patient Record</h5>
-                <Link
-                  to={all_routes.medicalResults}
-                  className="btn btn-sm btn-outline-light flex-shrink-0"
-                >
-                  View All
-                </Link>
-              </div>
-              {/* جدول مبسّط زي التيمبليت */}
-              <div className="card-body">
-                <div className="table-responsive table-nowrap">
-                  <table className="table border mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Patient Name</th>
-                        <th>Diagnosis</th>
-                        <th>Department</th>
-                        <th>Last Visit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <h6 className="fs-14 mb-0 fw-medium">
-                            <Link to={all_routes.patientDetails}>James Carter</Link>
-                          </h6>
-                        </td>
-                        <td>Male</td>
-                        <td>
-                          <span className="badge badge-soft-info">Cardiology</span>
-                        </td>
-                        <td>17 Jun 2025</td>
-                      </tr>
-                      {/* ... باقي الصفوف اختياري */}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Latest Appointments (من التيمبليت) — اختياري */}
-        {/* تقدري ترجعي تضيفيه هنا لو عايزة */}
-      </div>
-
-      <CommonFooter />
-    </div>
+          </section>
+        )}
+      </main>
+    </motion.div>
   );
 };
 

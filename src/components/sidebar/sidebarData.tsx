@@ -24,9 +24,9 @@ export const SidebarData = [
   submenuItems: [
     { label: "Drug Search", link: route.drugSearch, submenu: false, submenuItems: [] },
     { label: "Insurance Search", link: route.insuranceSearch, submenu: false, submenuItems: [] }, // <-- add this
-  { label: "Search 3", link: route.search3, submenu: false, submenuItems: [] },    // existing items…
-{ label: "Search 2 (Class)", link: route.search2, submenu: false, submenuItems: [] }
-  
+    { label: "Search By Drug Class", link: route.search2, submenu: false, submenuItems: [] },
+    { label: "Search By RXGroup", link: route.search3, submenu: false, submenuItems: [] },    // existing items…
+
 
 
 ],
@@ -38,10 +38,11 @@ export const SidebarData = [
   submenu: true,
         icon: "layout-board",
     submenuItems: [
+// { label: "Main Dashboard ", link: "/main", submenu: false, submenuItems: [] },
 
-{ label: "Dashboard 1", link: "/dashboard1", submenu: false, submenuItems: [] },
-{ label: "Dashboard 2", link: "/dashboard2", submenu: false, submenuItems: [] },
-{ label: "Dashboard 3", link: "/dashboard3", submenu: false, submenuItems: [] },
+{ label: "All Scripts Audits Dashboard", link: "/dashboard1", submenu: false, submenuItems: [] },
+{ label: "Scripts Matched Medisearch Tool Output Audit Dashboard  ", link: "/dashboard2", submenu: false, submenuItems: [] },
+{ label: "Scripts Miamatched Medisearch Tool Output Audit Dashboard 3", link: "/dashboard3", submenu: false, submenuItems: [] },
 
     ]
   },

@@ -1,33 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
 import debounce from "debounce";
-import axiosInstance from "../../api/axiosInstance"; // ← عدّل المسار لو لزم
-// لو بتستخدم react-router:
+import axiosInstance from "../../api/axiosInstance";
+
+// optional react-router (بدون اعتماد صريح)
 void useMemo;
 let navigateFn: ((path: string) => void) | null = null;
 try {
-  // optional import to avoid hard dependency if not installed
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { useNavigate } = require("react-router-dom");
-  // small hook shim; if react-router exists, we'll use it below
   // @ts-ignore
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const nav = typeof useNavigate === "function" ? useNavigate : null;
   if (nav) navigateFn = nav();
-} catch { /* no-op: fall back to window.location.href */ }
+} catch {}
 
-/** ====== Types (مطابقة للصفحة الأولى) ====== */
-type Drug = {
-  id: number;
-  name: string;
-  ndc?: string;
-};
+type Drug = { id: number; name: string; ndc?: string };
 type DrugInsuranceInfo = { insuranceId: number; insurance: string };
 type Prescription = { net?: number; ndcCode?: string; drugName?: string; drugClassId?: number };
 
-/** ====== Component ====== */
 const DrugSearch: React.FC = () => {
-  /** Search + suggestions (من API) */
+  // ===== search state =====
   const [query, setQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -37,7 +28,7 @@ const DrugSearch: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  /** Selected state */
+  // ===== selections (التبعية زي ما هي) =====
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(null);
   const [ndcList, setNdcList] = useState<string[]>([]);
   const [selectedNdc, setSelectedNdc] = useState("");
@@ -45,7 +36,6 @@ const DrugSearch: React.FC = () => {
   const [selectedIns, setSelectedIns] = useState<DrugInsuranceInfo | null>(null);
   const [details, setDetails] = useState<Prescription | null>(null);
 
-  /** ====== Debounced API search (مطابق للصفحة الأولى) ====== */
   const debouncedSearch = useCallback(
     debounce(async (text: string, page: number) => {
       if (!text || text.trim().length < 1) {
@@ -75,7 +65,6 @@ const DrugSearch: React.FC = () => {
   const pageRef = useRef(pageNumber);
   useEffect(() => { pageRef.current = pageNumber; }, [pageNumber]);
 
-  /** Infinite scroll داخل قائمة الاقتراحات */
   const onSuggestionsScroll = () => {
     if (!dropdownRef.current || isLoading || !hasMore) return;
     const { scrollTop, clientHeight, scrollHeight } = dropdownRef.current;
@@ -92,7 +81,7 @@ const DrugSearch: React.FC = () => {
     return () => el.removeEventListener("scroll", onSuggestionsScroll);
   }, [isLoading, hasMore, query]);
 
-  /** Handlers */
+  // ===== handlers =====
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
@@ -107,11 +96,9 @@ const DrugSearch: React.FC = () => {
     setSelectedDrug(drug);
     setQuery(drug.name);
     setShowSuggestions(false);
-    // reset dependent state
-    setNdcList([]);
-    setSelectedNdc("");
-    setInsList([]);
-    setSelectedIns(null);
+    // reset dependents
+    setNdcList([]); setSelectedNdc("");
+    setInsList([]); setSelectedIns(null);
     setDetails(null);
     try {
       const { data } = await axiosInstance.get(`/drug/getDrugNDCs?name=${encodeURIComponent(drug.name)}`);
@@ -123,9 +110,7 @@ const DrugSearch: React.FC = () => {
 
   const handlePickNdc = async (ndc: string) => {
     setSelectedNdc(ndc);
-    setInsList([]);
-    setSelectedIns(null);
-    setDetails(null);
+    setInsList([]); setSelectedIns(null); setDetails(null);
     if (!ndc) return;
     try {
       const { data } = await axiosInstance.get(`/drug/GetInsuranceByNdc?ndc=${encodeURIComponent(ndc)}`);
@@ -141,7 +126,7 @@ const DrugSearch: React.FC = () => {
     setDetails(null);
   };
 
-  /** جلب تفاصيل الـ Net عند اكتمال الـ NDC + Insurance */
+  // fetch details when both are ready
   useEffect(() => {
     (async () => {
       if (!selectedNdc || !selectedIns) return;
@@ -158,36 +143,24 @@ const DrugSearch: React.FC = () => {
   }, [selectedNdc, selectedIns]);
 
   const clearAll = () => {
-    setQuery("");
-    setShowSuggestions(false);
-    setActiveIndex(-1);
-    setSuggestions([]);
-    setSelectedDrug(null);
-    setNdcList([]);
-    setSelectedNdc("");
-    setInsList([]);
-    setSelectedIns(null);
-    setDetails(null);
-    setPageNumber(1);
-    setHasMore(true);
+    setQuery(""); setShowSuggestions(false); setActiveIndex(-1); setSuggestions([]);
+    setSelectedDrug(null); setNdcList([]); setSelectedNdc("");
+    setInsList([]); setSelectedIns(null); setDetails(null);
+    setPageNumber(1); setHasMore(true);
   };
 
   const viewDrugDetails = () => {
     if (!selectedDrug) return;
-    // حفظ اسم التأمين (نفس سلوك الصفحة الأولى)
-    if (selectedIns?.insurance) {
-      localStorage.setItem("selectedRx", selectedIns.insurance);
-    }
+    if (selectedIns?.insurance) localStorage.setItem("selectedRx", selectedIns.insurance);
     const url = `/drug/${selectedDrug.id}?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedIns?.insuranceId ?? ""}`;
-    if (navigateFn) {
-      navigateFn(url);
-    } else {
-      window.location.href = url;
-    }
+    if (navigateFn) navigateFn(url); else window.location.href = url;
   };
 
+  // ===== UI =====
+ 
   return (
-    <div className="container py-4">
+    <div className="container mid min-vh-100 d-flex flex-column justify-content-center py-4 ">
+      {/* عنوان و breadcrumb في المنتصف */}
       <div className="d-flex flex-column align-items-center text-center mb-4">
         <AutoBreadcrumb title="Search Medicines" />
       </div>
@@ -195,18 +168,18 @@ const DrugSearch: React.FC = () => {
       <div className="row justify-content-center">
         <div className="col-12 col-lg-10 col-xl-8">
           <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
-            <div className="card-header bg- text-white py-4 px-5">
-              <h4 className="mb-0 fw-semibold">
+            <div className="card-header text-center py-4 px-5">
+              <h4 className="mb-1 fw-semibold">
                 <i className="ti ti-pill me-2"></i>
                 Medicine Search
               </h4>
-              <p className="mb-0 opacity-75 mt-2">
-                Search by name, then select the NDC and the insurance — now connected to the live API.
+              <p className="mb-0 text-muted">
+                Search by name, then select the NDC and the insurance — connected to the live API.
               </p>
             </div>
 
             <div className="card-body p-5">
-              {/* Search input */}
+              {/* 1) Drug search */}
               <div className="mb-4 position-relative">
                 <label htmlFor="drugSearch" className="form-label fw-medium text-dark mb-2">Drug name</label>
                 <div className="input-group input-group-lg">
@@ -225,17 +198,13 @@ const DrugSearch: React.FC = () => {
                     onKeyDown={(e) => {
                       if (!showSuggestions || suggestions.length === 0) return;
                       if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setActiveIndex((p) => (p + 1 < suggestions.length ? p + 1 : 0));
+                        e.preventDefault(); setActiveIndex((p) => (p + 1 < suggestions.length ? p + 1 : 0));
                       } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setActiveIndex((p) => (p - 1 >= 0 ? p - 1 : suggestions.length - 1));
+                        e.preventDefault(); setActiveIndex((p) => (p - 1 >= 0 ? p - 1 : suggestions.length - 1));
                       } else if (e.key === "Enter" && activeIndex >= 0) {
-                        e.preventDefault();
-                        handlePickDrug(suggestions[activeIndex]);
+                        e.preventDefault(); handlePickDrug(suggestions[activeIndex]);
                       } else if (e.key === "Escape") {
-                        setShowSuggestions(false);
-                        setActiveIndex(-1);
+                        setShowSuggestions(false); setActiveIndex(-1);
                       }
                     }}
                     role="combobox"
@@ -279,74 +248,76 @@ const DrugSearch: React.FC = () => {
                         {d.name}
                       </button>
                     ))}
-                    {isLoading && (
-                      <div className="px-4 py-2 small text-muted">Loading…</div>
-                    )}
+                    {isLoading && <div className="px-4 py-2 small text-muted">Loading…</div>}
                   </div>
                 )}
               </div>
 
-              {/* NDC */}
-              {ndcList.length > 0 && (
-                <div className="mb-4">
-                  <label htmlFor="ndcSelect" className="form-label fw-medium text-dark mb-2">Select NDC</label>
-                  <select
-                    id="ndcSelect"
-                    className="form-select form-select-lg"
-                    value={selectedNdc}
-                    onChange={(e) => handlePickNdc(e.target.value)}
-                    style={{ height: "52px" }}
-                  >
-                    <option value="">Select NDC…</option>
-                    {ndcList.map((ndc) => (
-                      <option key={ndc} value={ndc}>{ndc}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* 2) NDC — يظهر دائمًا لكن Disabled لحد ما تختار دواء */}
+              <div className="mb-4">
+                <label htmlFor="ndcSelect" className="form-label fw-medium text-dark mb-2">Select NDC</label>
+                <select
+                  id="ndcSelect"
+                  className="form-select form-select-lg"
+                  value={selectedNdc}
+                  onChange={(e) => handlePickNdc(e.target.value)}
+                  disabled={!selectedDrug || ndcList.length === 0}
+                  aria-disabled={!selectedDrug || ndcList.length === 0}
+                  style={{ height: "52px" }}
+                >
+                  {!selectedDrug && <option value="">Select a drug first…</option>}
+                  {selectedDrug && ndcList.length === 0 && <option value="">No NDCs found</option>}
+                  {ndcList.map((ndc) => (
+                    <option key={ndc} value={ndc}>{ndc}</option>
+                  ))}
+                </select>
+                {!selectedDrug && <small className="text-muted">Pick a drug to enable this field.</small>}
+              </div>
 
-              {/* Insurance */}
-              {selectedNdc && insList.length > 0 && (
-                <div className="mb-4">
-                  <label htmlFor="insSelect" className="form-label fw-medium text-dark mb-2">Select Insurance</label>
-                  <select
-                    id="insSelect"
-                    className="form-select form-select-lg"
-                    value={selectedIns?.insuranceId ?? ""}
-                    onChange={(e) => handlePickIns(Number(e.target.value))}
-                    style={{ height: "52px" }}
-                  >
-                    <option value="">Select insurance…</option>
-                    {insList.map((i) => (
-                      <option key={i.insuranceId} value={i.insuranceId}>
-                        {i.insurance}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* 3) Insurance — يظهر دائمًا لكن Disabled لحد ما تختار NDC */}
+              <div className="mb-4">
+                <label htmlFor="insSelect" className="form-label fw-medium text-dark mb-2">Select Insurance</label>
+                <select
+                  id="insSelect"
+                  className="form-select form-select-lg"
+                  value={selectedIns?.insuranceId ?? ""}
+                  onChange={(e) => handlePickIns(Number(e.target.value))}
+                  disabled={!selectedNdc || insList.length === 0}
+                  aria-disabled={!selectedNdc || insList.length === 0}
+                  style={{ height: "52px" }}
+                >
+                  {!selectedNdc && <option value="">Select an NDC first…</option>}
+                  {selectedNdc && insList.length === 0 && <option value="">No insurances found</option>}
+                  {insList.map((i) => (
+                    <option key={i.insuranceId} value={i.insuranceId}>
+                      {i.insurance}
+                    </option>
+                  ))}
+                </select>
+                {!selectedNdc && <small className="text-muted">Choose NDC to enable insurance list.</small>}
+              </div>
 
-              {/* Live Preview */}
-              {details && (
-                <div className="alert alert-primary d-flex align-items-center gap-3 p-3 rounded-3 mb-4">
-                  <div className="bg-white p-3 rounded-3">
-                    <i className="ti ti-currency-dollar text-primary fs-4" aria-hidden="true" />
+              {/* 4) Net preview */}
+              <div className={`alert ${details ? "alert-primary" : "alert-light border"} d-flex align-items-center gap-3 p-3 rounded-3 mb-4`}>
+                <div className={`p-3 rounded-3 ${details ? "bg-white" : "bg-light"}`}>
+                  <i className={`ti ti-currency-dollar ${details ? "text-primary" : "text-muted"} fs-4`} aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="fw-semibold">Estimated Net Price</div>
+                  <div className="fs-5 fw-bold">
+                    {details?.net != null ? `$${details.net}` : "Select insurance to preview"}
                   </div>
-                  <div>
-                    <div className="fw-semibold">Estimated Net Price</div>
-                    <div className="fs-5 fw-bold">
-                      {details.net != null ? `$${details.net}` : "N/A"}
-                    </div>
-                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Action */}
+              {/* 5) Action */}
               {selectedDrug && (
                 <button
                   type="button"
                   className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
                   onClick={viewDrugDetails}
+                  disabled={!selectedNdc || !selectedIns}
+                  title={!selectedNdc || !selectedIns ? "Pick NDC and Insurance first" : ""}
                 >
                   <i className="ti ti-file-text me-2"></i>
                   View Drug Details
@@ -356,8 +327,14 @@ const DrugSearch: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Details Modal تم إزالته لأنه كان mock؛ هنوجّه مباشرة لصفحة التفاصيل */}
+   
+    <style>{`
+    .mid {
+      margin-left: 220px; /* match your sidebar width */
+     
+    }
+  `}
+</style>
     </div>
   );
 };
