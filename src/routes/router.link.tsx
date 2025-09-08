@@ -13,8 +13,10 @@ import ThirdDashBoard from "../pages/new/ThirdDashboard";
 import LandingPage from "../pages/new/home";
 import HowItWorksModern from "../pages/new/help";
 import UserActivityLogs from "../pages/new/logs";
-
-
+import FeedbackForm from "../pages/new/feedback";
+import InsuranceDetails from "../pages/new/InsuranceDetails";
+import InsuranceBINDetails from "../pages/new/InsuranceBinDetails";
+import InsurancePCNDetails from "../pages/new/InsurancePcnDetails";
 const ManageInvoicesDetails = React.lazy(
   () =>
     import(
@@ -562,6 +564,10 @@ export const publicRoutes = [
 { path:"/logs", element: <UserActivityLogs />} ,
 { path:"/main", element: <MainDashboard />} ,
 
+{ path:"/feed", element: <FeedbackForm />} ,
+{ path:"/ins", element: <InsuranceDetails />} ,
+{ path:"/bin", element: <InsuranceBINDetails />} ,
+{ path:"/pcn", element: <InsurancePCNDetails />} ,
 
 
 

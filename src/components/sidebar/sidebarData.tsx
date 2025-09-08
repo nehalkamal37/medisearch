@@ -59,6 +59,13 @@ export const SidebarData = [
         icon: "help",
         submenuItems: [],
       },
+       {
+        label: "FeedBack",
+        link: '/feed',
+        submenu: false,
+        icon: "feedback",
+        submenuItems: [],
+      },
       /*
       {
         label: "Applications",
