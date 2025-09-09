@@ -1,0 +1,682 @@
+// src/pages/new/Search3.tsx
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import AutoBreadcrumb from "../../components/breadcrumb/AutoBreadcrumb";
+import PageMeta from "../../components/PageMeta";
+import debounce from "debounce";
+import axiosInstance from "../../api/axiosInstance";
+import { loadConfig } from "../../BaseUrlLoader";
+
+/** ===== Types ===== */
+interface RxGroupModel {
+  id: number;
+  rxGroup: string;
+  insurancePCNId: number;
+}
+interface DrugModel {
+  id: number;
+  name: string;
+  ndc: string;
+  form: string;
+  strength: string;
+  drugClassId: number;
+  drugClass?: string;
+  acq: number;
+  awp: number;
+  rxcui: number;
+}
+interface Prescription {
+  net?: number;
+  ndc?: string;
+  drugName?: string;
+}
+
+const PAGE_SIZE = 20;
+
+const Search3: React.FC = () => {
+  /** Bootstrap config (keep API behavior) */
+  const [ready, setReady] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        await loadConfig();
+      } catch {
+        /* likely already loaded */
+      } finally {
+        setReady(true);
+      }
+    })();
+  }, []);
+
+  /** UI state */
+  const [limitSearch, setLimitSearch] = useState(true);
+
+  // RxGroup state
+  const [rxGroups, setRxGroups] = useState<RxGroupModel[]>([]);
+  const [rxGroupSearchQuery, setRxGroupSearchQuery] = useState("");
+  const [showRxGroupSuggestions, setShowRxGroupSuggestions] = useState(false);
+  const [selectedRxGroup, setSelectedRxGroup] = useState<RxGroupModel | null>(null);
+
+  // Drug state (with pagination)
+  const [drugSearchQuery, setDrugSearchQuery] = useState("");
+  const [showDrugSuggestions, setShowDrugSuggestions] = useState(false);
+  const [drugs, setDrugs] = useState<DrugModel[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingDrugs, setIsLoadingDrugs] = useState(false);
+  const drugDropdownRef = useRef<HTMLUListElement | null>(null);
+
+  // NDC state
+  const [selectedDrug, setSelectedDrug] = useState<DrugModel | null>(null);
+  const [ndcList, setNdcList] = useState<string[]>([]);
+  const [ndcSearchQuery, setNdcSearchQuery] = useState("");
+  const [showNdcSuggestions, setShowNdcSuggestions] = useState(false);
+  const [selectedNdc, setSelectedNdc] = useState("");
+
+  // Details (GET /drug/GetDetails)
+  const [netDetails, setNetDetails] = useState<Prescription | null>(null);
+
+  const hideAllSuggestions = () => {
+    setShowRxGroupSuggestions(false);
+    setShowDrugSuggestions(false);
+    setShowNdcSuggestions(false);
+  };
+
+  /** Fetch RxGroups (AUTH) */
+  useEffect(() => {
+    if (!ready) return;
+    (async () => {
+      try {
+        setApiError(null);
+        const { data } = await axiosInstance.get<RxGroupModel[]>("/Insurance/GetAllRxGroups");
+        setRxGroups(Array.isArray(data) ? data : []);
+      } catch (e: any) {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setApiError("Rx Groups are restricted by the API (401/403).");
+        } else {
+          setApiError("Failed to load Rx Groups.");
+        }
+      }
+    })();
+  }, [ready]);
+
+  /** Derived lists */
+  const filteredRxGroups = useMemo(() => {
+    const q = rxGroupSearchQuery.toLowerCase();
+    return q ? rxGroups.filter((r) => r.rxGroup.toLowerCase().includes(q)) : rxGroups;
+  }, [rxGroups, rxGroupSearchQuery]);
+
+  const uniqueDrugNames = useMemo(
+    () => Array.from(new Map(drugs.map((d) => [d.name, d])).values()),
+    [drugs]
+  );
+
+  const filteredNdcList = useMemo(() => {
+    const q = ndcSearchQuery.toLowerCase();
+    return q ? ndcList.filter((n) => n.toLowerCase().includes(q)) : ndcList;
+  }, [ndcList, ndcSearchQuery]);
+
+  /** Drug search (AUTH) */
+  const fetchDrugsPage = useCallback(
+    async (page: number, append = false) => {
+      if (!ready) return;
+      if (!drugSearchQuery.trim()) {
+        setDrugs([]);
+        setCurrentPage(1);
+        return;
+      }
+
+      let url = "";
+      if (limitSearch && selectedRxGroup) {
+        url = `/drug/GetDrugsByInsuranceNamePagintated?insurance=${encodeURIComponent(
+          selectedRxGroup.rxGroup
+        )}&drugName=${encodeURIComponent(
+          drugSearchQuery
+        )}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
+      } else if (!limitSearch) {
+        url = `/drug/searchByName?name=${encodeURIComponent(
+          drugSearchQuery
+        )}&pageNumber=${page}&pageSize=${PAGE_SIZE}`;
+      } else {
+        // limitSearch=true but no RxGroup chosen yet → nothing to fetch
+        return;
+      }
+
+      try {
+        setApiError(null);
+        setIsLoadingDrugs(true);
+        const { data } = await axiosInstance.get<DrugModel[]>(url);
+        const payload = Array.isArray(data) ? data : [];
+        setDrugs((prev) => (append ? [...prev, ...payload] : payload));
+        setCurrentPage(page);
+      } catch (e: any) {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setApiError("Drug search is restricted by the API (401/403).");
+        } else {
+          setApiError("Failed to load drugs.");
+        }
+      } finally {
+        setIsLoadingDrugs(false);
+      }
+    },
+    [ready, drugSearchQuery, limitSearch, selectedRxGroup]
+  );
+
+  const debouncedDrugSearch = useCallback(
+    debounce(() => {
+      if (!drugSearchQuery.trim()) {
+        setDrugs([]);
+        setCurrentPage(1);
+        return;
+      }
+      fetchDrugsPage(1, false);
+      setShowDrugSuggestions(true);
+    }, 300),
+    [fetchDrugsPage, drugSearchQuery]
+  );
+
+  useEffect(() => {
+    if (!ready) return;
+    debouncedDrugSearch();
+  }, [ready, drugSearchQuery, limitSearch, selectedRxGroup, debouncedDrugSearch]);
+
+  /** Infinite scroll in drug dropdown */
+  useEffect(() => {
+    const el = drugDropdownRef.current;
+    if (!el) return;
+    const onScroll = (e: Event) => {
+      const t = e.currentTarget as HTMLElement;
+      const atBottom = t.scrollHeight - t.scrollTop <= t.clientHeight + 4;
+      if (atBottom && !isLoadingDrugs && uniqueDrugNames.length >= PAGE_SIZE * currentPage) {
+        fetchDrugsPage(currentPage + 1, true);
+      }
+    };
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [uniqueDrugNames, currentPage, isLoadingDrugs, fetchDrugsPage]);
+
+  /** Handlers */
+  const onSelectRxGroup = (rg: RxGroupModel) => {
+    setSelectedRxGroup(rg);
+    setRxGroupSearchQuery(rg.rxGroup);
+    setShowRxGroupSuggestions(false);
+
+    // reset downstream
+    setDrugSearchQuery("");
+    setDrugs([]);
+    setCurrentPage(1);
+
+    setSelectedDrug(null);
+    setNdcList([]);
+    setSelectedNdc("");
+    setNdcSearchQuery("");
+    setNetDetails(null);
+  };
+
+  const onSelectDrug = (drug: DrugModel) => {
+    setSelectedDrug(drug);
+    setDrugSearchQuery(drug.name);
+    setShowDrugSuggestions(false);
+
+    // collect NDCs for this name from current results (no extra API)
+    const ndcs = Array.from(new Set(drugs.filter((d) => d.name === drug.name).map((d) => d.ndc)));
+    setNdcList(ndcs);
+    setSelectedNdc(ndcs[0] ?? "");
+    setNdcSearchQuery(ndcs[0] ?? "");
+  };
+
+  const onSelectNdc = (ndc: string) => {
+    setSelectedNdc(ndc);
+    setNdcSearchQuery(ndc);
+    setShowNdcSuggestions(false);
+  };
+
+  /** Fetch Details when NDC + RxGroup are ready */
+  useEffect(() => {
+    (async () => {
+      if (!ready) return;
+      if (!selectedNdc || !selectedRxGroup) {
+        setNetDetails(null);
+        return;
+      }
+      try {
+        setApiError(null);
+        const { data } = await axiosInstance.get<Prescription>(
+          `/drug/GetDetails?ndc=${encodeURIComponent(selectedNdc)}&insuranceId=${selectedRxGroup.id}`
+        );
+        setNetDetails(data ?? null);
+      } catch (e: any) {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          setNetDetails(null);
+          setApiError("Net price is restricted by the API (401/403).");
+        } else {
+          setNetDetails(null);
+          setApiError("Failed to load drug details.");
+        }
+      }
+    })();
+  }, [ready, selectedNdc, selectedRxGroup]);
+
+  /** Clear all */
+  const clearAll = () => {
+    setSelectedRxGroup(null);
+    setRxGroupSearchQuery("");
+    setDrugSearchQuery("");
+    setDrugs([]);
+    setShowDrugSuggestions(false);
+    setCurrentPage(1);
+    setSelectedDrug(null);
+    setNdcList([]);
+    setSelectedNdc("");
+    setNdcSearchQuery("");
+    setNetDetails(null);
+    setApiError(null);
+  };
+
+  /** Click outside to close suggestion popovers */
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest(".js-suggest")) hideAllSuggestions();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="spinner-border" role="status" />
+      </div>
+    );
+  }
+
+  /** ===== UI (match modern style; all inputs visible & disabled until ready) ===== */
+  return (
+
+    <div className="content-area py-3 search3-page">
+  <PageMeta
+    title="Rx Group → Drug → NDC (Authenticated API)"
+    description="Search by Rx Group, then drug and NDC — using the authenticated axiosInstance."
+  />
+
+  <div className="d-flex flex-column align-items-center text-center mb-4 mt-4 breadcrumb-xl">
+    <div style={{ fontSize: "2.25rem", fontWeight: 700 }}>
+      <AutoBreadcrumb title="RxGroup, Drugs & NDC" />
+    </div>
+  </div>
+
+   
+
+
+  <div className="container-xxl gw-wide">
+    <div className="row justify-content-center">
+      <div className="col-12 col-lg-10 col-xl-8">
+          <div className="card shadow-lg border-0 rounded-4 overflow-visible" style={{ overflow: "visible" }}>
+            <div className="card-header text-center py-4 px-5">
+              <h4 className="mb-1 fw-semibold">
+                <i className="ti ti-users me-2" />
+                RxGroup, Drugs & NDC (Authenticated)
+              </h4>
+              <p className="mb-0 text-muted">
+                All reads use the authenticated Axios client.
+                {apiError && <span className="ms-2 text-warning">{apiError}</span>}
+              </p>
+            </div>
+
+            <div className="card-body p-5">
+              {/* Toggle limit search */}
+              <div className="d-flex align-items-center justify-content-between bg-light rounded-3 p-3 mb-4">
+                <label htmlFor="limitSearch" className="form-label m-0 fw-medium">
+                  <i className="ti ti-filter me-1" />
+                  Limit search to selected Rx Group
+                </label>
+                <div className="form-check form-switch m-0">
+                  <input
+                    id="limitSearch"
+                    className="form-check-input"
+                    type="checkbox"
+                    checked={limitSearch}
+                    onChange={() => {
+                      clearAll();
+                      setLimitSearch(!limitSearch);
+                    }}
+                    style={{ width: "2.5em" }}
+                  />
+                </div>
+              </div>
+
+              {/* Inputs grid — all visible */}
+              <div className="row g-4">
+                {/* Rx Group */}
+                <div className="col-12 col-lg-6">
+                  <div className="position-relative js-suggest">
+                    <label className="form-label fw-medium text-dark mb-2">
+                      <i className="ti ti-id-badge me-1" />
+                      Search for Rx Group
+                    </label>
+                    <div className="input-group input-group-lg">
+                      <span className="input-group-text bg-light border-end-0">
+                        <i className="ti ti-search text-primary" />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control border-start-0 ps-2"
+                        placeholder="e.g., Medi-Cal…"
+                        value={rxGroupSearchQuery}
+                        onChange={(e) => setRxGroupSearchQuery(e.target.value)}
+                        onFocus={() => { hideAllSuggestions(); setShowRxGroupSuggestions(true); }}
+                        style={{ height: "52px" }}
+                      />
+                      {(rxGroupSearchQuery || selectedRxGroup) && (
+                        <button
+                          className="btn btn-outline-secondary d-flex align-items-center"
+                          onClick={clearAll}
+                          style={{ height: "52px" }}
+                          aria-label="Clear all"
+                        >
+                          <i className="ti ti-x" />
+                        </button>
+                      )}
+                    </div>
+                    {showRxGroupSuggestions && filteredRxGroups.length > 0 && (
+                      <ul
+                        role="listbox"
+                        className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                        style={{ maxHeight: 240, overflowY: "auto", zIndex: 3000 }}
+                      >
+                        {filteredRxGroups.map((rg) => (
+                          <li
+                            key={rg.id}
+                            role="option"
+                            tabIndex={0}
+                            onClick={() => onSelectRxGroup(rg)}
+                            onKeyDown={(e) => e.key === "Enter" && onSelectRxGroup(rg)}
+                            className="list-group-item list-group-item-action border-0 py-3 px-4"
+                          >
+                            {rg.rxGroup}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {/* Drug */}
+                <div className="col-12 col-lg-6">
+                  <div className="position-relative js-suggest">
+                    <label className="form-label fw-medium text-dark mb-2">
+                      <i className="ti ti-pill me-1" />
+                      Search for Drug
+                    </label>
+                    <div className="input-group input-group-lg">
+                      <span className="input-group-text bg-light border-end-0">
+                        <i className="ti ti-search text-primary" />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control border-start-0 ps-2"
+                        placeholder={
+                          limitSearch && !selectedRxGroup
+                            ? "Pick Rx Group first…"
+                            : "e.g., Metformin"
+                        }
+                        value={drugSearchQuery}
+                        onChange={(e) => setDrugSearchQuery(e.target.value)}
+                        onFocus={() => {
+                          if (!limitSearch || selectedRxGroup) {
+                            hideAllSuggestions();
+                            setShowDrugSuggestions(true);
+                          }
+                        }}
+                        style={{ height: "52px" }}
+                        disabled={limitSearch && !selectedRxGroup}
+                        aria-disabled={limitSearch && !selectedRxGroup}
+                      />
+                    </div>
+
+                    {showDrugSuggestions && uniqueDrugNames.length > 0 && (
+                      <ul
+                        ref={drugDropdownRef}
+                        role="listbox"
+                        className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                        style={{ maxHeight: 260, overflowY: "auto", zIndex: 3000 }}
+                      >
+                        {(() => {
+                          const q = (drugSearchQuery || "").trim().toLowerCase();
+                          const matched = q.length
+                            ? uniqueDrugNames.filter((d) => d.name?.toLowerCase().startsWith(q))
+                            : uniqueDrugNames;
+                          const matchedIds = new Set(matched.map((d) => d.id));
+                          const unmatched = q.length
+                            ? uniqueDrugNames.filter((d) => !matchedIds.has(d.id))
+                            : [];
+
+                          return (
+                            <>
+                              {matched.map((d) => (
+                                <li
+                                  key={d.id}
+                                  role="option"
+                                  tabIndex={0}
+                                  onClick={() => onSelectDrug(d)}
+                                  onKeyDown={(e) => e.key === "Enter" && onSelectDrug(d)}
+                                  className="list-group-item list-group-item-action border-0 py-3 px-4"
+                                >
+                                  <div className="d-flex align-items-center">
+                                    <i className="ti ti-pill text-primary me-2" />
+                                    {d.name}
+                                  </div>
+                                </li>
+                              ))}
+
+                              {unmatched.length > 0 && (
+                                <li
+                                  className="px-4 py-2 small text-primary bg-light border-top fw-medium"
+                                  role="separator"
+                                  aria-hidden="true"
+                                >
+                                  Did you mean?
+                                </li>
+                              )}
+
+                              {unmatched.map((d) => (
+                                <li
+                                  key={d.id}
+                                  role="option"
+                                  tabIndex={0}
+                                  onClick={() => onSelectDrug(d)}
+                                  onKeyDown={(e) => e.key === "Enter" && onSelectDrug(d)}
+                                  className="list-group-item list-group-item-action border-0 py-3 px-4"
+                                >
+                                  <div className="d-flex align-items-center">
+                                    <i className="ti ti-help-circle text-primary me-2" />
+                                    {d.name}
+                                  </div>
+                                </li>
+                              ))}
+
+                              {(isLoadingDrugs ||
+                                uniqueDrugNames.length >= PAGE_SIZE * currentPage) && (
+                                <li className="text-center small text-muted py-3 border-top">
+                                  <i className="ti ti-loader me-1" />
+                                  Loading more…
+                                </li>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </ul>
+                    )}
+
+                    {limitSearch && !selectedRxGroup && (
+                      <small className="text-muted">Choose an Rx Group or turn off the toggle to search globally.</small>
+                    )}
+                  </div>
+                </div>
+
+                {/* NDC */}
+                <div className="col-12 col-lg-6">
+                  <div className="position-relative js-suggest">
+                    <label className="form-label fw-medium text-dark mb-2">
+                      <i className="ti ti-barcode me-1" />
+                      Search for NDC
+                    </label>
+                    <div className="input-group input-group-lg">
+                      <span className="input-group-text bg-light border-end-0">
+                        <i className="ti ti-search text-primary" />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control border-start-0 ps-2"
+                        placeholder={selectedDrug ? "Type to filter NDCs…" : "Pick a drug first…"}
+                        value={ndcSearchQuery}
+                        onChange={(e) => setNdcSearchQuery(e.target.value)}
+                        onFocus={() => {
+                          if (selectedDrug && ndcList.length > 0) {
+                            hideAllSuggestions();
+                            setShowNdcSuggestions(true);
+                          }
+                        }}
+                        style={{ height: "52px" }}
+                        disabled={!selectedDrug || ndcList.length === 0}
+                        aria-disabled={!selectedDrug || ndcList.length === 0}
+                      />
+                    </div>
+
+                    {showNdcSuggestions && filteredNdcList.length > 0 && (
+                      <ul
+                        role="listbox"
+                        className="position-absolute top-100 start-0 w-100 mt-1 bg-white border rounded-3 shadow-lg"
+                        style={{ maxHeight: 240, overflowY: "auto", zIndex: 3000 }}
+                      >
+                        {(() => {
+                          const q = (ndcSearchQuery || "").trim();
+                          const matchedNdc = q.length
+                            ? filteredNdcList.filter((ndc) => String(ndc).startsWith(q))
+                            : filteredNdcList;
+                          const matchedSet = new Set(matchedNdc.map((ndc) => String(ndc)));
+                          const unmatchedNdc = q.length
+                            ? filteredNdcList.filter((ndc) => !matchedSet.has(String(ndc)))
+                            : [];
+
+                          return (
+                            <>
+                              {matchedNdc.map((ndc, i) => (
+                                <li
+                                  key={`${ndc}-m-${i}`}
+                                  role="option"
+                                  tabIndex={0}
+                                  onClick={() => onSelectNdc(ndc)}
+                                  onKeyDown={(e) => e.key === "Enter" && onSelectNdc(ndc)}
+                                  className="list-group-item list-group-item-action border-0 py-3 px-4"
+                                >
+                                  <div className="d-flex align-items-center">
+                                    <i className="ti ti-barcode text-primary me-2" />
+                                    {ndc}
+                                  </div>
+                                </li>
+                              ))}
+
+                              {unmatchedNdc.length > 0 && (
+                                <li
+                                  className="px-4 py-2 small text-primary bg-light border-top fw-medium"
+                                  role="separator"
+                                  aria-hidden="true"
+                                >
+                                  Did you mean?
+                                </li>
+                              )}
+
+                              {unmatchedNdc.map((ndc, i) => (
+                                <li
+                                  key={`${ndc}-u-${i}`}
+                                  role="option"
+                                  tabIndex={0}
+                                  onClick={() => onSelectNdc(ndc)}
+                                  onKeyDown={(e) => e.key === "Enter" && onSelectNdc(ndc)}
+                                  className="list-group-item list-group-item-action border-0 py-3 px-4"
+                                >
+                                  <div className="d-flex align-items-center">
+                                    <i className="ti ti-help-circle text-primary me-2" />
+                                    {ndc}
+                                  </div>
+                                </li>
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </ul>
+                    )}
+
+                    {!selectedDrug && (
+                      <small className="text-muted">Pick a drug to enable NDCs.</small>
+                    )}
+                  </div>
+                </div>
+
+                {/* Net preview */}
+                <div className="col-12 col-lg-6">
+                  <div className={`alert ${selectedDrug && selectedNdc ? "alert-primary" : "alert-light border"} d-flex align-items-center gap-3 p-3 rounded-3 h-100`}>
+                    <div className={`p-3 rounded-3 ${selectedDrug && selectedNdc ? "bg-white" : "bg-light"}`}>
+                      <i className={`ti ti-currency-dollar ${selectedDrug && selectedNdc ? "text-primary" : "text-muted"} fs-4`} aria-hidden="true" />
+                    </div>
+                    <div>
+                      <div className="fw-semibold">Net Price</div>
+                      <div className="fs-5 fw-bold">
+                        {selectedDrug && selectedNdc
+                          ? (netDetails?.net != null ? `$${netDetails.net}` : apiError ? "—" : "…")
+                          : "Select NDC to preview"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action */}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-lg w-100 py-3 fw-semibold"
+                  onClick={() => {
+                    if (!selectedDrug || !selectedNdc || !selectedRxGroup) return;
+                    localStorage.setItem("InsuranceId", selectedRxGroup?.id.toString() ?? "");
+                    localStorage.setItem("DrugId", selectedDrug?.id.toString() ?? "");
+                    localStorage.setItem("NDCCode", selectedNdc.toString() ?? "");
+                    localStorage.setItem("selectedRx", selectedRxGroup.rxGroup);
+                    window.location.href = `/drug-page`;
+                  }}
+                  disabled={!selectedDrug || !selectedNdc || !selectedRxGroup}
+                  title={!selectedDrug || !selectedNdc || !selectedRxGroup ? "Pick Rx Group → Drug → NDC" : ""}
+                >
+                  <i className="ti ti-file-text me-2" />
+                  View Drug Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+</div>
+      {/* Local styles to match the other pages */}
+     <style>{`
+    .content-area{ padding-left:1rem; padding-right:1rem; }
+    .gw-wide{ max-width: clamp(1100px, 78vw, 1320px); margin-inline: auto; }
+
+    .search3-page .breadcrumb{ justify-content:center !important; }
+    .search3-page .breadcrumb .breadcrumb-item{ white-space:nowrap; }
+
+    .mid{ margin-left:0 !important; }  /* in case old CSS is still loaded */
+  `}</style>
+
+    </div>
+  );
+};
+
+export default Search3;
