@@ -323,10 +323,54 @@ const FirstDashboard: React.FC<Props> = ({ data }) => {
             .filter{
             margin-left:555px;
             }
+
+            /* === keep dashboard flush-left regardless of sidebar state === */
+#main-content {
+  margin-left: 0 !important;          /* kill any template margin */
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Some templates add the margin to .page-wrapper specifically — neutralize it */
+.page-wrapper {
+  margin-left: 0 !important;
+}
+
+/* If your sidebar is a drawer, make it overlay instead of pushing content */
+.app-sidebar, .sidebar, .nav-left {
+  position: fixed;        /* sits over content */
+  inset: 0 auto 0 0;      /* top:0; left:0; bottom:0 */
+  width: 260px;           /* your sidebar width */
+  transform: translateX(-100%);   /* hidden by default */
+  transition: transform .25s ease;
+  z-index: 1040;
+}
+/* When you open the sidebar, toggle a class on <body> like body.sidebar-open */
+body.sidebar-open .app-sidebar,
+body.sidebar-open .sidebar,
+body.sidebar-open .nav-left {
+  transform: translateX(0);
+}
+
+/* Optional backdrop for overlay UX */
+.sidebar-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.2);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 1035;
+}
+body.sidebar-open .sidebar-backdrop {
+  opacity: 1; pointer-events: auto;
+}
+
+/* Make sure content isn’t accidentally shifted by container constraints */
+#main-content .content { max-width: 100%; }
+
         `}
       </style>
 
-      <div className="page-wrapper" id="main-content">
+<div id="main-content" className="container-fluid px-3">
         <div className="content">
           {/* ===== matchOn like MainDashboard ===== */}
          

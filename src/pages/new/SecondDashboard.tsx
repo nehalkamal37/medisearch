@@ -414,10 +414,50 @@ const SecondDashboard: React.FC<Props> = ({ data }) => {
             .filter{
             margin-left:555px;
             }
+            /* === keep dashboard flush-left regardless of sidebar state === */
+#main-content {
+  margin-left: 0 !important;      /* kill any template margin */
+  width: 100% !important;
+  max-width: 100% !important;
+}
+.page-wrapper {                   /* neutralize theme's push layout */
+  margin-left: 0 !important;
+}
+
+/* Make the sidebar an overlay (so it doesn't push content) */
+.app-sidebar, .sidebar, .nav-left {
+  position: fixed;
+  inset: 0 auto 0 0;              /* top:0; left:0; bottom:0 */
+  width: 260px;                    /* your sidebar width */
+  transform: translateX(-100%);
+  transition: transform .25s ease;
+  z-index: 1040;
+}
+body.sidebar-open .app-sidebar,
+body.sidebar-open .sidebar,
+body.sidebar-open .nav-left {
+  transform: translateX(0);
+}
+
+/* Optional: dim backdrop when sidebar is open (add one element in your layout) */
+.sidebar-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.2);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 1035;
+}
+body.sidebar-open .sidebar-backdrop {
+  opacity: 1; pointer-events: auto;
+}
+
+/* Ensure the page content spans the full width */
+#main-content .content { max-width: 100%; }
+
         `}
       </style>
-      <div className="page-wrapper" id="main-content">
-        <div className="content">
+<div id="main-content" className="container-fluid px-3">
+          <div className="content">
           {/* ===== matchOn control (BIN/PCN/RX) ===== */}
           
  {/* ===== matchOn like MainDashboard ===== */}
